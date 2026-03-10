@@ -206,6 +206,10 @@ export const MemFSPlugin: Plugin = async (input) => {
   const globalRoot = path.join(memoryRoot, "global")
   await mkdir(globalRoot, { recursive: true })
 
+  // Seed global store first (before resolveProjectName writes projects.md,
+  // which would cause scanDir to see existing files and skip seeding)
+  await ensureSeed(globalRoot, config, "global")
+
   // Resolve project name and register in projects.md
   const registryPath = path.join(globalRoot, config.hotDir, "projects.md")
   const projectName = await resolveProjectName(
@@ -218,6 +222,9 @@ export const MemFSPlugin: Plugin = async (input) => {
   const projectRoot = path.join(memoryRoot, "projects", projectName)
   await mkdir(projectRoot, { recursive: true })
 
+  // Seed project store
+  await ensureSeed(projectRoot, config, "project")
+
   // -----------------------------------------------------------------------
   // Build stores array (project first — default for new file writes)
   // -----------------------------------------------------------------------
@@ -226,14 +233,6 @@ export const MemFSPlugin: Plugin = async (input) => {
     { root: projectRoot, scope: "project" },
     { root: globalRoot, scope: "global" },
   ]
-
-  // -----------------------------------------------------------------------
-  // Seed, git, watcher
-  // -----------------------------------------------------------------------
-
-  // Seed default files (no-op if files already exist)
-  await ensureSeed(globalRoot, config, "global")
-  await ensureSeed(projectRoot, config, "project")
 
   // Single git repo at the memory root
   const git: SimpleGit = await ensureRepo(memoryRoot)

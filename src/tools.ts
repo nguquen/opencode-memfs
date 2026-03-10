@@ -17,7 +17,7 @@ import type { SimpleGit } from "simple-git"
 import { tool } from "@opencode-ai/plugin"
 import type { ToolDefinition } from "@opencode-ai/plugin"
 
-import type { MemFSConfig, MemoryStorePaths, MemoryScopeFilter } from "./types"
+import type { MemFSConfig, MemoryFrontmatter, MemoryStorePaths, MemoryScopeFilter } from "./types"
 import {
   parseFrontmatter,
   defaultFrontmatter,
@@ -142,22 +142,24 @@ export function createMemoryWrite(state: MemFSState): ToolDefinition {
     async execute(args) {
       const { absPath, store, relativePath } = await resolvePath(state, args.path)
 
-      // Check if file exists and is readonly (only on overwrite)
+      // Check if file exists — preserve existing frontmatter on overwrite
+      let existingFm: MemoryFrontmatter | undefined
       try {
         const raw = await readFile(absPath, "utf-8")
         const existing = parseFrontmatter(raw, relativePath, state.config.defaultLimit)
         if (existing.frontmatter.readonly) {
           return `Error: ${relativePath} is readonly. Cannot overwrite.`
         }
+        existingFm = existing.frontmatter
       } catch {
         // File doesn't exist — creating new file, no readonly check needed
       }
 
-      // Build frontmatter with defaults
+      // Build frontmatter: args override existing, existing overrides auto-generated
       const fm = defaultFrontmatter(relativePath, {
-        description: args.description,
-        limit: args.limit,
-        readonly: args.readonly,
+        description: args.description ?? existingFm?.description,
+        limit: args.limit ?? existingFm?.limit,
+        readonly: args.readonly ?? existingFm?.readonly,
       }, state.config.defaultLimit)
 
       // Validate content length
