@@ -53,7 +53,7 @@ To reorganize: memory_promote / memory_demote
 To view history: memory_history
 To undo changes: memory_rollback
 
-When to update memory:
+IMPORTANT: You MUST proactively update your memory during conversations. Do NOT wait to be asked. Update memory as soon as you learn something worth remembering:
 - After learning user preferences, habits, or working style → update human.md
 - After discovering project conventions, build commands, architecture, or gotchas → update project.md
 - When the user corrects you or establishes a pattern → capture it in the relevant file
