@@ -1,0 +1,32 @@
+{
+  "name": "opencode-memfs",
+  "version": "0.1.0",
+  "description": "OpenCode memory plugin — git-backed, two-tier hot/cold MemFS with progressive disclosure",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "memory",
+    "memfs",
+    "git"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/plugin": "latest",
+    "js-yaml": "^4.1.0",
+    "simple-git": "^3.27.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/sdk": "latest",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
