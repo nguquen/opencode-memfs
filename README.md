@@ -1,6 +1,6 @@
 # opencode-memfs
 
-Git-backed, two-tier hot/cold memory plugin for [OpenCode](https://github.com/opencode-ai/opencode). Gives your agent persistent memory across sessions with automatic git versioning.
+Git-backed, two-tier hot/cold memory plugin for [OpenCode](https://github.com/anomalyco/opencode). Gives your agent persistent memory across sessions with automatic git versioning.
 
 ## How It Works
 
