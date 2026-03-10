@@ -52,6 +52,14 @@ To delete memory: memory_delete
 To reorganize: memory_promote / memory_demote
 To view history: memory_history
 To undo changes: memory_rollback
+
+When to update memory:
+- After learning user preferences, habits, or working style → update human.md
+- After discovering project conventions, build commands, architecture, or gotchas → update project.md
+- When the user corrects you or establishes a pattern → capture it in the relevant file
+- When you produce useful context (decisions, discoveries, plans) worth preserving → create or update a reference file
+- When starting a new conversation, review your memory to maintain continuity
+- Keep entries concise and actionable — memory is for future you, not a log
 </instructions>`
 
 /**
