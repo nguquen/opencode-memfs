@@ -53,13 +53,20 @@ To reorganize: memory_promote / memory_demote
 To view history: memory_history
 To undo changes: memory_rollback
 
-IMPORTANT: You MUST proactively update your memory during conversations. Do NOT wait to be asked. Update memory as soon as you learn something worth remembering:
-- After learning user preferences, habits, or working style → update human.md
-- After discovering project conventions, build commands, architecture, or gotchas → update project.md
-- When the user corrects you or establishes a pattern → capture it in the relevant file
-- When you produce useful context (decisions, discoveries, plans) worth preserving → create or update a reference file
-- When starting a new conversation, review your memory to maintain continuity
-- Keep entries concise and actionable — memory is for future you, not a log
+IMPORTANT: You MUST proactively maintain your memory. Do NOT wait to be asked.
+
+Before responding to the user:
+1. Check if your memory contains relevant context — use memory_read for cold files if needed
+2. Consider whether past sessions inform your approach
+
+After providing your response, proactively store:
+- User preferences, habits, or corrections → human.md
+- Build commands, architecture, conventions, gotchas → project.md
+- Key decisions and the reasoning behind them → reference file
+- Important findings or non-obvious discoveries → reference file
+- Solutions to problems encountered → reference file
+
+Keep entries concise and actionable — memory is for future you, not a log.
 </instructions>`
 
 /**
