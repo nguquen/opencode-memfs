@@ -50,7 +50,7 @@ const TABLE_ROW_RE = /^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|$/
  * Expects a markdown table with columns: Project | Path | Last Seen.
  * Skips the header row and separator row.
  */
-function parseProjectsRegistry(body: string): ProjectRegistryEntry[] {
+export function parseProjectsRegistry(body: string): ProjectRegistryEntry[] {
   const entries: ProjectRegistryEntry[] = []
   const lines = body.split("\n")
 
@@ -81,7 +81,7 @@ function parseProjectsRegistry(body: string): ProjectRegistryEntry[] {
 /**
  * Serialize the projects registry into a markdown table body.
  */
-function serializeProjectsTable(entries: ProjectRegistryEntry[]): string {
+export function serializeProjectsTable(entries: ProjectRegistryEntry[]): string {
   if (entries.length === 0) {
     return "| Project | Path | Last Seen |\n|---|---|---|"
   }
@@ -99,7 +99,7 @@ function serializeProjectsTable(entries: ProjectRegistryEntry[]): string {
  *
  * Returns an empty array if the file doesn't exist yet.
  */
-async function readRegistry(
+export async function readRegistry(
   registryPath: string,
   defaultLimit: number,
 ): Promise<ProjectRegistryEntry[]> {
@@ -115,7 +115,7 @@ async function readRegistry(
 /**
  * Write the projects registry to projects.md.
  */
-async function writeRegistry(
+export async function writeRegistry(
   registryPath: string,
   entries: ProjectRegistryEntry[],
   defaultLimit: number,
@@ -144,7 +144,7 @@ async function writeRegistry(
  *
  * @returns The resolved project name.
  */
-async function resolveProjectName(
+export async function resolveProjectName(
   registryPath: string,
   projectDir: string,
   config: MemFSConfig,
