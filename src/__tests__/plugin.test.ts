@@ -15,6 +15,7 @@ import {
   readRegistry,
   writeRegistry,
   resolveProjectName,
+  isValidProjectName,
 } from "../plugin"
 import { parseFrontmatter } from "../frontmatter"
 import { createTmpDir, cleanupTmpDir, TEST_CONFIG } from "./helpers"
@@ -353,5 +354,66 @@ describe("resolveProjectName", () => {
     // File doesn't exist — should create it
     const name = await resolveProjectName(registryPath, "/test/project", TEST_CONFIG)
     expect(name).toBe("project")
+  })
+
+  it("should not register projects with invalid names", async () => {
+    const registryPath = path.join(tmpDir, "system", "projects.md")
+
+    // Base64-encoded internal ID
+    const name = await resolveProjectName(
+      registryPath,
+      "/workspaces/L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGUtbWVtZnM",
+      TEST_CONFIG,
+    )
+    expect(name).toBe("L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGUtbWVtZnM")
+
+    // Should NOT be persisted to the registry
+    const entries = await readRegistry(registryPath, TEST_CONFIG.defaultLimit)
+    expect(entries.find((e) => e.name === name)).toBeUndefined()
+  })
+
+  it("should not register projects with token-prefixed names", async () => {
+    const registryPath = path.join(tmpDir, "system", "projects.md")
+
+    const name = await resolveProjectName(
+      registryPath,
+      "/workspaces/L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGUtbWVtZnM",
+      TEST_CONFIG,
+    )
+    expect(name).toBe("L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGUtbWVtZnM")
+
+    const entries = await readRegistry(registryPath, TEST_CONFIG.defaultLimit)
+    expect(entries.find((e) => e.name === name)).toBeUndefined()
+  })
+})
+
+describe("isValidProjectName", () => {
+  it("should accept normal project names", () => {
+    expect(isValidProjectName("my-project")).toBe(true)
+    expect(isValidProjectName("opencode-memfs")).toBe(true)
+    expect(isValidProjectName("app")).toBe(true)
+    expect(isValidProjectName("my_project_v2")).toBe(true)
+    expect(isValidProjectName("project.config")).toBe(true)
+  })
+
+  it("should reject empty names", () => {
+    expect(isValidProjectName("")).toBe(false)
+  })
+
+  it("should reject names over 64 characters", () => {
+    expect(isValidProjectName("a".repeat(65))).toBe(false)
+  })
+
+  it("should reject base64-encoded strings", () => {
+    expect(isValidProjectName("L3dvcmtzcGFjZXMvbWVtZW50bw")).toBe(false)
+    expect(isValidProjectName("L3dvcmtzcGFjZXMvb3BlbmFzcw")).toBe(false)
+    expect(isValidProjectName("L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGU")).toBe(false)
+  })
+
+  it("should accept short alphanumeric names", () => {
+    // Short names shouldn't be falsely flagged as base64
+    expect(isValidProjectName("memento")).toBe(true)
+    expect(isValidProjectName("jobs")).toBe(true)
+    expect(isValidProjectName("x123")).toBe(true)
   })
 })

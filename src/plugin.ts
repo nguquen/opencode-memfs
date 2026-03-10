@@ -134,6 +134,27 @@ export async function writeRegistry(
 }
 
 /**
+ * Check whether a project name looks like a real human-readable name.
+ *
+ * Rejects names that appear to be internal/encoded IDs, such as:
+ * - Base64-encoded paths (long alphanumeric strings with no separators)
+ * - Names longer than 64 characters (unlikely for real project dirs)
+ */
+export function isValidProjectName(name: string): boolean {
+  // Reject empty names
+  if (!name || name.length === 0) return false
+
+  // Reject names that are too long to be real project directories
+  if (name.length > 64) return false
+
+  // Reject names that look like base64-encoded strings:
+  // 20+ chars of only [A-Za-z0-9+/=] with no hyphens, dots, or underscores
+  if (name.length >= 20 && /^[A-Za-z0-9+/=]+$/.test(name)) return false
+
+  return true
+}
+
+/**
  * Resolve the project name for the current project directory.
  *
  * Uses `path.basename()` as the default name. If the basename is already
@@ -160,8 +181,13 @@ export async function resolveProjectName(
     return existing.name
   }
 
-  // Derive name from basename
+  // Derive name from basename, skip registration for invalid names
   const basename = path.basename(projectDir)
+  if (!isValidProjectName(basename)) {
+    // Don't register projects with garbled/internal IDs — just use the
+    // basename without persisting to the registry.
+    return basename
+  }
 
   // Check for basename collision
   const collision = entries.find((e) => e.name === basename)
