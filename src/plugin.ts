@@ -6,8 +6,14 @@
  * the store, git, watcher, and tool handlers.
  */
 
-// TODO: TASK-19 — Export MemFSPlugin factory
+import type { Plugin } from "@opencode-ai/plugin"
+
 // TODO: TASK-19 — Initialize store, git, watcher on load
 // TODO: TASK-19 — Register system prompt transform hook
 // TODO: TASK-19 — Register all 9 memory tools
 // TODO: TASK-19 — Handle plugin lifecycle (startup, shutdown)
+
+/** MemFS plugin factory — placeholder until TASK-19 implements the full lifecycle. */
+export const MemFSPlugin: Plugin = async () => {
+  return {}
+}
