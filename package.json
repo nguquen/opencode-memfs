@@ -3,16 +3,9 @@
   "version": "0.1.0",
   "description": "OpenCode memory plugin — git-backed, two-tier hot/cold MemFS with progressive disclosure",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target node --format esm && tsc --emitDeclarationOnly",
+    "build": "bun build src/index.ts --outdir dist --target node --format esm",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "test": "vitest run",
