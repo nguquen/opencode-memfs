@@ -281,7 +281,9 @@ export const MemFSPlugin: Plugin = async (input) => {
         const { hot } = partitionFiles(files, config.hotDir)
 
         const memfsBlock = renderMemFS(treeEntries, hot)
-        output.system.splice(1, 0, memfsBlock)
+        // Insert after the first system message if possible, otherwise append
+        const insertAt = Math.min(1, output.system.length)
+        output.system.splice(insertAt, 0, memfsBlock)
       } catch {
         // If scanning fails, don't crash the conversation
         // The agent can still use tools to access memory
