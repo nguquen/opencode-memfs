@@ -31,8 +31,6 @@ export const MemFSConfigSchema = z.object({
   /** Maximum directory depth shown in tree listing. Default: 3. */
   maxTreeDepth: z.number().int().positive().default(3),
 
-  /** Whether to enable global memory (~/.config/opencode/memory/). Default: true. */
-  globalMemoryEnabled: z.boolean().default(true),
 })
 
 // ---------------------------------------------------------------------------
@@ -45,7 +43,6 @@ export const DEFAULT_CONFIG: MemFSConfig = {
   defaultLimit: 5000,
   autoCommitDebounceMs: 2000,
   maxTreeDepth: 3,
-  globalMemoryEnabled: true,
 }
 
 // ---------------------------------------------------------------------------

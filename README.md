@@ -48,27 +48,32 @@ Then reference the local path in your config:
 
 ## Directory Structure
 
-On first run, the plugin creates this structure in your project:
+All memory is centralized under `~/.config/opencode/memory/` in a single git repo:
 
 ```
-<project>/.opencode/memory/          # Project memory (git repo)
-├── system/                          # HOT — pinned in system prompt
-│   ├── persona.md                   # Agent identity and behavior
-│   ├── human.md                     # User preferences and habits
-│   └── project.md                   # Build commands, architecture, conventions
-├── reference/                       # COLD — read on demand
-└── archive/                         # COLD — historical context
+~/.config/opencode/memory/               # Single git repo, single watcher
+├── global/                              # Shared across all projects
+│   ├── system/                          # HOT — pinned in system prompt
+│   │   ├── persona.md                   # Agent identity and behavior
+│   │   ├── human.md                     # User preferences and habits
+│   │   └── projects.md                  # Auto-maintained project registry (readonly)
+│   └── reference/                       # COLD — read on demand
+└── projects/
+    ├── my-app/                          # Per-project memory
+    │   ├── system/
+    │   │   └── project.md               # Build commands, architecture, conventions
+    │   ├── reference/                   # COLD — read on demand
+    │   └── archive/                     # COLD — historical context
+    └── another-project/
+        ├── system/
+        │   └── project.md
+        ├── reference/
+        └── archive/
 ```
 
-If global memory is enabled (default), a shared store is also created:
+Project directories are named by the project's directory basename (e.g. `my-app` from `/home/user/projects/my-app`). If two projects share the same basename, a short hash suffix is appended to disambiguate (e.g. `my-app-a3f2`).
 
-```
-~/.config/opencode/memory/           # Global memory (shared across projects)
-├── system/
-│   ├── persona.md
-│   └── human.md
-└── reference/
-```
+The `projects.md` file is an auto-maintained registry of all known projects — updated on each plugin init with the project name, path, and last-seen date.
 
 ## Configuration
 
@@ -79,8 +84,7 @@ Optional. Create `~/.config/opencode/memfs.json`:
   "hotDir": "system",
   "defaultLimit": 5000,
   "autoCommitDebounceMs": 2000,
-  "maxTreeDepth": 3,
-  "globalMemoryEnabled": true
+  "maxTreeDepth": 3
 }
 ```
 
@@ -92,7 +96,6 @@ All fields are optional with sensible defaults:
 | `defaultLimit` | number | `5000` | Default character limit for new files |
 | `autoCommitDebounceMs` | number | `2000` | Debounce delay (ms) before auto-committing |
 | `maxTreeDepth` | number | `3` | Maximum directory depth in tree listing |
-| `globalMemoryEnabled` | boolean | `true` | Enable global memory at `~/.config/opencode/memory/` |
 
 ## Tools
 
@@ -243,18 +246,20 @@ Agent calls memory_write / memory_edit / etc.
   → Tool validates input (readonly, limit, existence)
   → Atomic write to disk (tmp + rename)
   → Tool returns result immediately
-  → fs.watch detects change
+  → Single fs.watch on ~/.config/opencode/memory/ detects change
   → 2-second debounce (batches rapid edits)
   → git add . && git commit -m "memory: update <files>"
 ```
 
 Key design decisions:
 
+- **Centralized storage** — All memory under `~/.config/opencode/memory/` with one git repo and one watcher
 - **Tool isolation** — Dedicated memory tools prevent ambiguity between "editing code" and "updating memory"
 - **Progressive disclosure** — Tree is always visible (cheap), content loaded on demand (expensive)
 - **Git versioning** — Rollback, audit trail, and conflict resolution without custom code
 - **Decoupled commit path** — Tools write files, watcher handles git. Catches all changes regardless of source
 - **Atomic writes** — tmp + rename prevents corruption from partial writes
+- **Projects registry** — Auto-maintained `projects.md` tracks all known projects for cross-project awareness
 
 ## Development
 

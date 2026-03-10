@@ -93,8 +93,20 @@ export interface MemFSConfig {
   autoCommitDebounceMs: number
   /** Maximum directory depth shown in tree listing. Default: 3. */
   maxTreeDepth: number
-  /** Whether to enable global memory (~/.config/opencode/memory/). Default: true. */
-  globalMemoryEnabled: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Projects Registry
+// ---------------------------------------------------------------------------
+
+/** An entry in the projects registry (global/system/projects.md). */
+export interface ProjectRegistryEntry {
+  /** Derived project name (basename or basename-hash on collision). */
+  name: string
+  /** Absolute path to the project directory. */
+  path: string
+  /** ISO 8601 date string of last plugin init for this project. */
+  lastSeen: string
 }
 
 // ---------------------------------------------------------------------------

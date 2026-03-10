@@ -2,7 +2,7 @@
  * Git operations for memory versioning.
  *
  * Uses simple-git for init, add, commit, log, and checkout (rollback).
- * Each memory directory (project + global) is its own git repo.
+ * A single git repo at ~/.config/opencode/memory/ covers all stores.
  */
 
 import { access } from "fs/promises"

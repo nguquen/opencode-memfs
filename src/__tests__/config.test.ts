@@ -17,7 +17,6 @@ describe("MemFSConfigSchema", () => {
       defaultLimit: 10000,
       autoCommitDebounceMs: 5000,
       maxTreeDepth: 5,
-      globalMemoryEnabled: false,
     })
     expect(result.success).toBe(true)
     if (result.success) {
@@ -25,7 +24,6 @@ describe("MemFSConfigSchema", () => {
       expect(result.data.defaultLimit).toBe(10000)
       expect(result.data.autoCommitDebounceMs).toBe(5000)
       expect(result.data.maxTreeDepth).toBe(5)
-      expect(result.data.globalMemoryEnabled).toBe(false)
     }
   })
 
@@ -48,7 +46,6 @@ describe("MemFSConfigSchema", () => {
       expect(result.data.defaultLimit).toBe(8000)
       expect(result.data.autoCommitDebounceMs).toBe(2000) // default
       expect(result.data.maxTreeDepth).toBe(3) // default
-      expect(result.data.globalMemoryEnabled).toBe(true) // default
     }
   })
 
@@ -90,9 +87,9 @@ describe("MemFSConfigSchema", () => {
     expect(result.success).toBe(false)
   })
 
-  it("should reject non-boolean globalMemoryEnabled", () => {
-    const result = MemFSConfigSchema.safeParse({ globalMemoryEnabled: "yes" })
-    expect(result.success).toBe(false)
+  it("should pass through unknown fields without error", () => {
+    const result = MemFSConfigSchema.safeParse({ unknownField: "value" })
+    expect(result.success).toBe(true)
   })
 })
 
@@ -106,6 +103,5 @@ describe("DEFAULT_CONFIG", () => {
     expect(DEFAULT_CONFIG.defaultLimit).toBe(5000)
     expect(DEFAULT_CONFIG.autoCommitDebounceMs).toBe(2000)
     expect(DEFAULT_CONFIG.maxTreeDepth).toBe(3)
-    expect(DEFAULT_CONFIG.globalMemoryEnabled).toBe(true)
   })
 })

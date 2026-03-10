@@ -72,10 +72,18 @@ export const MemFSPlugin: Plugin = async (ctx) => {
 - `tool` — registers all 9 memory tools
 - `experimental.chat.system.transform` — injects `<memfs>` block at position 1 in system prompt
 
+### Centralized Memory Layout
+
+All memory lives under `~/.config/opencode/memory/`:
+- `global/` — shared across all projects (persona, human, projects registry)
+- `projects/<name>/` — per-project memory (named by directory basename)
+
+Single git repo and single filesystem watcher at the memory root.
+
 ### Git Versioning
 
-Each memory directory (project + global) is its own git repo. The watcher auto-commits
-on file change with a 2-second debounce. Tools write to disk; watcher handles git.
+A single git repo at `~/.config/opencode/memory/` covers all stores. The watcher
+auto-commits on file change with a 2-second debounce. Tools write to disk; watcher handles git.
 
 ## Dependencies
 
@@ -213,4 +221,4 @@ chore: update dependencies
 
 Tasks are tracked in the memento vault at `/workspaces/memento/01 Projects/OpenCode MemFS/Tasks/`.
 Each task file has an `id` field (e.g., `TASK-9`, `TASK-10`). Source code TODOs reference
-these IDs. Current task range: TASK-9 through TASK-19.
+these IDs. Current task range: TASK-9 through TASK-32.

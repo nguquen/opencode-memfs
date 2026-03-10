@@ -45,7 +45,6 @@ export const TEST_CONFIG: MemFSConfig = {
   defaultLimit: 5000,
   autoCommitDebounceMs: 2000,
   maxTreeDepth: 3,
-  globalMemoryEnabled: false,
 }
 
 // ---------------------------------------------------------------------------

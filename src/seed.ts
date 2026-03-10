@@ -1,15 +1,17 @@
 /**
  * Default directory structure and starter files for first run.
  *
- * Creates system/, reference/, archive/ directories with
- * default persona.md, human.md, project.md starter files.
+ * Seeds are split by scope:
+ * - Global: persona.md, human.md, projects.md + reference/
+ * - Project: project.md + reference/, archive/
+ *
  * Only seeds if the memory directory is empty (no .md files).
  */
 
 import { mkdir, writeFile, access } from "fs/promises"
 import path from "path"
 
-import type { MemFSConfig } from "./types"
+import type { MemFSConfig, MemoryScope } from "./types"
 import { serializeFrontmatter, defaultFrontmatter } from "./frontmatter"
 import { scanDir } from "./store"
 
@@ -23,10 +25,12 @@ interface SeedFile {
   path: string
   /** Description for frontmatter. */
   description: string
+  /** Whether the file should be readonly. */
+  readonly?: boolean
 }
 
-/** Default starter files in system/. */
-const SEED_FILES: SeedFile[] = [
+/** Starter files for the global store. */
+const GLOBAL_SEED_FILES: SeedFile[] = [
   {
     path: "system/persona.md",
     description: "Agent identity, behavior guidelines, communication style",
@@ -36,13 +40,25 @@ const SEED_FILES: SeedFile[] = [
     description: "User preferences, habits, constraints, working style",
   },
   {
+    path: "system/projects.md",
+    description: "Registry of all known projects with their paths",
+    readonly: true,
+  },
+]
+
+/** Starter files for project stores. */
+const PROJECT_SEED_FILES: SeedFile[] = [
+  {
     path: "system/project.md",
     description: "Build commands, architecture, conventions, gotchas",
   },
 ]
 
-/** Empty directories to create with .gitkeep files. */
-const SEED_DIRS = ["reference", "archive"]
+/** Empty directories for the global store. */
+const GLOBAL_SEED_DIRS = ["reference"]
+
+/** Empty directories for project stores. */
+const PROJECT_SEED_DIRS = ["reference", "archive"]
 
 // ---------------------------------------------------------------------------
 // Seeding
@@ -51,18 +67,21 @@ const SEED_DIRS = ["reference", "archive"]
 /**
  * Seed a memory directory with the default structure.
  *
- * Creates system/ with persona.md, human.md, project.md,
- * and empty reference/ + archive/ directories with .gitkeep.
+ * Seeds are split by scope:
+ * - Global: persona.md, human.md, projects.md in system/ + empty reference/
+ * - Project: project.md in system/ + empty reference/, archive/
  *
  * Only seeds if no .md files exist in the directory yet.
  *
- * @param memoryRoot - Absolute path to the memory root directory.
- * @param config     - Plugin configuration (for defaultLimit).
+ * @param memoryRoot - Absolute path to the store root directory.
+ * @param config     - Plugin configuration (for hotDir, defaultLimit).
+ * @param scope      - Which scope this store represents.
  * @returns `true` if seeding was performed, `false` if skipped.
  */
 export async function ensureSeed(
   memoryRoot: string,
   config: MemFSConfig,
+  scope: MemoryScope = "project",
 ): Promise<boolean> {
   // Check if the directory already has memory files
   const existing = await scanDir(memoryRoot)
@@ -70,22 +89,27 @@ export async function ensureSeed(
     return false
   }
 
+  // Select seed definitions based on scope
+  const seedFiles = scope === "global" ? GLOBAL_SEED_FILES : PROJECT_SEED_FILES
+  const seedDirs = scope === "global" ? GLOBAL_SEED_DIRS : PROJECT_SEED_DIRS
+
   // Create system/ directory and seed files
   const systemDir = path.join(memoryRoot, config.hotDir)
   await mkdir(systemDir, { recursive: true })
 
-  for (const seed of SEED_FILES) {
+  for (const seed of seedFiles) {
     const filePath = path.join(memoryRoot, seed.path)
     const fm = defaultFrontmatter(seed.path, {
       description: seed.description,
       limit: config.defaultLimit,
+      readonly: seed.readonly,
     })
     const content = serializeFrontmatter(fm, "")
     await writeFile(filePath, content, "utf-8")
   }
 
-  // Create empty reference/ and archive/ with .gitkeep
-  for (const dir of SEED_DIRS) {
+  // Create empty directories with .gitkeep
+  for (const dir of seedDirs) {
     const dirPath = path.join(memoryRoot, dir)
     await mkdir(dirPath, { recursive: true })
 
