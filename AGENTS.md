@@ -11,10 +11,12 @@ npm run build          # tsc — compile to dist/
 npm run dev            # tsc --watch — incremental rebuild
 npm run clean          # rm -rf dist
 npx tsc --noEmit       # type-check without emitting
+npm test               # vitest run — run all tests once
+npm run test:watch     # vitest — watch mode
+npx vitest run src/__tests__/frontmatter.test.ts  # run a single test file
 ```
 
-No test runner is configured yet. No linter is configured yet.
-When tests are added, document the single-test command here.
+No linter is configured yet.
 
 ## Project Structure
 
