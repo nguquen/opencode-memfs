@@ -39,7 +39,12 @@ const DEFAULT_LIMIT = 5000
  *   humanizeFilename("reference/debugging-patterns.md") => "Debugging patterns"
  */
 export function humanizeFilename(filePath: string): string {
-  const base = path.basename(filePath, path.extname(filePath))
+  const ext = path.extname(filePath)
+  let base = path.basename(filePath, ext)
+  // path.basename treats ".md" as a dotfile (no ext), not an extension
+  if (base.startsWith(".") && ext === "") {
+    base = base.slice(1)
+  }
   const spaced = base.replace(/[-_]+/g, " ").trim()
   if (spaced.length === 0) return "Untitled"
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
