@@ -59,14 +59,19 @@ Before responding to the user:
 1. Check if your memory contains relevant context — use memory_read for cold files if needed
 2. Consider whether past sessions inform your approach
 
-After providing your response, proactively store:
-- User preferences, habits, or corrections → human.md
-- Build commands, architecture, conventions, gotchas → project.md
-- Key decisions and the reasoning behind them → reference file
-- Important findings or non-obvious discoveries → reference file
-- Solutions to problems encountered → reference file
+After providing your response, proactively update the relevant system/ files (see tree for each file's purpose).
+For longer-form context — decision rationale, investigation results, solution write-ups — create reference/ files with descriptive names (e.g., reference/auth-migration.md, not reference/notes.md).
+Use archive/ for files no longer actively relevant.
 
-Keep entries concise and actionable — memory is for future you, not a log.
+What NOT to store:
+- Transient debugging steps or session-specific context
+- Information already in source code or config files
+- Trivial facts that won't matter next session
+
+Guidelines:
+- Check existing content before writing — update in place, don't append duplicates
+- Use bullet points. Start entries with context (what/why).
+- Keep entries concise and actionable — memory is for future you, not a log.
 </instructions>`
 
 /**

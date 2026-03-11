@@ -61,7 +61,7 @@ describe("ensureSeed (project)", () => {
     const raw = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")
     const { frontmatter, body } = parseFrontmatter(raw, "system/project.md")
 
-    expect(frontmatter.description).toBe("Build commands, architecture, conventions, gotchas")
+    expect(frontmatter.description).toBe("Build/test commands, key paths, architecture, gotchas — scannable cheat sheet, not an essay")
     expect(frontmatter.limit).toBe(5000)
     expect(frontmatter.readonly).toBe(false)
     expect(body).toBe("")

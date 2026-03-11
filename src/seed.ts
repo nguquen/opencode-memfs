@@ -33,11 +33,13 @@ interface SeedFile {
 const GLOBAL_SEED_FILES: SeedFile[] = [
   {
     path: "system/persona.md",
-    description: "Agent identity, behavior guidelines, communication style",
+    description:
+      "Agent identity and behavior guidelines — update when the user customizes how you should act",
   },
   {
     path: "system/human.md",
-    description: "User preferences, habits, constraints, working style",
+    description:
+      "User preferences, habits, constraints, working style — update when the user states a preference or corrects you",
   },
   {
     path: "system/projects.md",
@@ -50,7 +52,8 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
 const PROJECT_SEED_FILES: SeedFile[] = [
   {
     path: "system/project.md",
-    description: "Build commands, architecture, conventions, gotchas",
+    description:
+      "Build/test commands, key paths, architecture, gotchas — scannable cheat sheet, not an essay",
   },
 ]
 
