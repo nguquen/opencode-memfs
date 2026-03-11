@@ -25,7 +25,7 @@ Optionally, pin to a specific version:
 
 ```json
 {
-  "plugin": ["opencode-memfs@0.0.2"]
+  "plugin": ["opencode-memfs@0.0.3"]
 }
 ```
 

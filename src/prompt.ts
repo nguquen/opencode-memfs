@@ -63,11 +63,6 @@ After providing your response, proactively update the relevant system/ files (se
 For longer-form context — decision rationale, investigation results, solution write-ups — create reference/ files with descriptive names (e.g., reference/auth-migration.md, not reference/notes.md).
 Use archive/ for files no longer actively relevant.
 
-What NOT to store:
-- Transient debugging steps or session-specific context
-- Information already in source code or config files
-- Trivial facts that won't matter next session
-
 Guidelines:
 - Check existing content before writing — update in place, don't append duplicates
 - Use bullet points. Start entries with context (what/why).
