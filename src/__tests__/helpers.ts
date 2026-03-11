@@ -15,6 +15,7 @@ import type { SimpleGit } from "simple-git"
 import type { MemFSConfig, MemoryStorePaths } from "../types"
 import type { MemFSState } from "../tools"
 import { ensureRepo } from "../git"
+import { createFileLock, createMutex } from "../lock"
 
 // ---------------------------------------------------------------------------
 // Temp Directory
@@ -130,6 +131,8 @@ export async function createTestState(
     stores: [store],
     gitInstances: new Map([[tmpDir, git]]),
     config: { ...TEST_CONFIG, ...configOverrides },
+    withFileLock: createFileLock(),
+    withGitLock: createMutex(),
   }
 }
 

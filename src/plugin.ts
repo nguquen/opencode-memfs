@@ -36,6 +36,7 @@ import { startWatcher } from "./watcher"
 import type { WatcherHandle } from "./watcher"
 import { createAllTools } from "./tools"
 import type { MemFSState } from "./tools"
+import { createFileLock, createMutex } from "./lock"
 
 // ---------------------------------------------------------------------------
 // Projects Registry
@@ -260,6 +261,17 @@ export const MemFSPlugin: Plugin = async (input) => {
     { root: globalRoot, scope: "global" },
   ]
 
+  // -----------------------------------------------------------------------
+  // Concurrency locks
+  // -----------------------------------------------------------------------
+
+  const withFileLock = createFileLock()
+  const withGitLock = createMutex()
+
+  // -----------------------------------------------------------------------
+  // Git + watcher
+  // -----------------------------------------------------------------------
+
   // Single git repo at the memory root
   const git: SimpleGit = await ensureRepo(memoryRoot)
 
@@ -268,11 +280,12 @@ export const MemFSPlugin: Plugin = async (input) => {
   gitInstances.set(projectRoot, git)
   gitInstances.set(globalRoot, git)
 
-  // Single watcher at the memory root
+  // Single watcher at the memory root (uses git lock to serialize commits)
   const watcher: WatcherHandle = startWatcher(
     memoryRoot,
     git,
     config.autoCommitDebounceMs,
+    withGitLock,
   )
 
   // -----------------------------------------------------------------------
@@ -283,6 +296,8 @@ export const MemFSPlugin: Plugin = async (input) => {
     stores,
     gitInstances,
     config,
+    withFileLock,
+    withGitLock,
   }
 
   // -----------------------------------------------------------------------

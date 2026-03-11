@@ -27,6 +27,7 @@ import {
 } from "./frontmatter"
 import { scanAllStores, buildTree, isHot } from "./store"
 import { getLog, rollback } from "./git"
+import type { FileLockFn, LockFn } from "./lock"
 
 // ---------------------------------------------------------------------------
 // Plugin State (shared across all tools)
@@ -40,6 +41,10 @@ export interface MemFSState {
   gitInstances: Map<string, SimpleGit>
   /** Plugin configuration. */
   config: MemFSConfig
+  /** Per-file lock for serializing read-modify-write operations. */
+  withFileLock: FileLockFn
+  /** Git operation lock for serializing commits and rollbacks. */
+  withGitLock: LockFn
 }
 
 // ---------------------------------------------------------------------------
@@ -142,36 +147,38 @@ export function createMemoryWrite(state: MemFSState): ToolDefinition {
     async execute(args) {
       const { absPath, store, relativePath } = await resolvePath(state, args.path)
 
-      // Check if file exists — preserve existing frontmatter on overwrite
-      let existingFm: MemoryFrontmatter | undefined
-      try {
-        const raw = await readFile(absPath, "utf-8")
-        const existing = parseFrontmatter(raw, relativePath, state.config.defaultLimit)
-        if (existing.frontmatter.readonly) {
-          return `Error: ${relativePath} is readonly. Cannot overwrite.`
+      return state.withFileLock(absPath, async () => {
+        // Check if file exists — preserve existing frontmatter on overwrite
+        let existingFm: MemoryFrontmatter | undefined
+        try {
+          const raw = await readFile(absPath, "utf-8")
+          const existing = parseFrontmatter(raw, relativePath, state.config.defaultLimit)
+          if (existing.frontmatter.readonly) {
+            return `Error: ${relativePath} is readonly. Cannot overwrite.`
+          }
+          existingFm = existing.frontmatter
+        } catch {
+          // File doesn't exist — creating new file, no readonly check needed
         }
-        existingFm = existing.frontmatter
-      } catch {
-        // File doesn't exist — creating new file, no readonly check needed
-      }
 
-      // Build frontmatter: args override existing, existing overrides auto-generated
-      const fm = defaultFrontmatter(relativePath, {
-        description: args.description ?? existingFm?.description,
-        limit: args.limit ?? existingFm?.limit,
-        readonly: args.readonly ?? existingFm?.readonly,
-      }, state.config.defaultLimit)
+        // Build frontmatter: args override existing, existing overrides auto-generated
+        const fm = defaultFrontmatter(relativePath, {
+          description: args.description ?? existingFm?.description,
+          limit: args.limit ?? existingFm?.limit,
+          readonly: args.readonly ?? existingFm?.readonly,
+        }, state.config.defaultLimit)
 
-      // Validate content length
-      if (args.content.length > fm.limit) {
-        return `Error: Content length (${args.content.length}) exceeds limit (${fm.limit}). Reduce content or increase limit.`
-      }
+        // Validate content length
+        if (args.content.length > fm.limit) {
+          return `Error: Content length (${args.content.length}) exceeds limit (${fm.limit}). Reduce content or increase limit.`
+        }
 
-      // Write the file atomically
-      await writeMemoryFile(absPath, fm, args.content)
+        // Write the file atomically
+        await writeMemoryFile(absPath, fm, args.content)
 
-      const tier = isHot(relativePath, state.config.hotDir) ? "hot (system)" : "cold"
-      return `Wrote ${relativePath} (${args.content.length}/${fm.limit} chars, ${tier}, ${store.scope} scope)`
+        const tier = isHot(relativePath, state.config.hotDir) ? "hot (system)" : "cold"
+        return `Wrote ${relativePath} (${args.content.length}/${fm.limit} chars, ${tier}, ${store.scope} scope)`
+      })
     },
   })
 }
@@ -192,35 +199,37 @@ export function createMemoryEdit(state: MemFSState): ToolDefinition {
     async execute(args) {
       const { absPath, store, relativePath } = await resolvePath(state, args.path)
 
-      // Read and parse
-      const file = await parseMemoryFile(
-        absPath,
-        relativePath,
-        store.scope,
-        state.config.defaultLimit,
-      )
+      return state.withFileLock(absPath, async () => {
+        // Read and parse
+        const file = await parseMemoryFile(
+          absPath,
+          relativePath,
+          store.scope,
+          state.config.defaultLimit,
+        )
 
-      // Check readonly
-      if (file.frontmatter.readonly) {
-        return `Error: ${relativePath} is readonly. Cannot edit.`
-      }
+        // Check readonly
+        if (file.frontmatter.readonly) {
+          return `Error: ${relativePath} is readonly. Cannot edit.`
+        }
 
-      // Find and replace
-      if (!file.content.includes(args.oldString)) {
-        return `Error: oldString not found in ${relativePath}. Make sure it matches exactly.`
-      }
+        // Find and replace
+        if (!file.content.includes(args.oldString)) {
+          return `Error: oldString not found in ${relativePath}. Make sure it matches exactly.`
+        }
 
-      const newContent = file.content.replace(args.oldString, args.newString)
+        const newContent = file.content.replace(args.oldString, args.newString)
 
-      // Validate new content length
-      if (newContent.length > file.frontmatter.limit) {
-        return `Error: Edited content (${newContent.length}) would exceed limit (${file.frontmatter.limit}).`
-      }
+        // Validate new content length
+        if (newContent.length > file.frontmatter.limit) {
+          return `Error: Edited content (${newContent.length}) would exceed limit (${file.frontmatter.limit}).`
+        }
 
-      // Write back
-      await writeMemoryFile(absPath, file.frontmatter, newContent)
+        // Write back
+        await writeMemoryFile(absPath, file.frontmatter, newContent)
 
-      return `Edited ${relativePath} (${newContent.length}/${file.frontmatter.limit} chars)`
+        return `Edited ${relativePath} (${newContent.length}/${file.frontmatter.limit} chars)`
+      })
     },
   })
 }
@@ -239,21 +248,23 @@ export function createMemoryDelete(state: MemFSState): ToolDefinition {
     async execute(args) {
       const { absPath, store, relativePath } = await resolvePath(state, args.path)
 
-      // Read and parse to check readonly
-      const file = await parseMemoryFile(
-        absPath,
-        relativePath,
-        store.scope,
-        state.config.defaultLimit,
-      )
+      return state.withFileLock(absPath, async () => {
+        // Read and parse to check readonly
+        const file = await parseMemoryFile(
+          absPath,
+          relativePath,
+          store.scope,
+          state.config.defaultLimit,
+        )
 
-      if (file.frontmatter.readonly) {
-        return `Error: ${relativePath} is readonly. Cannot delete.`
-      }
+        if (file.frontmatter.readonly) {
+          return `Error: ${relativePath} is readonly. Cannot delete.`
+        }
 
-      await unlink(absPath)
+        await unlink(absPath)
 
-      return `Deleted ${relativePath} (${store.scope} scope)`
+        return `Deleted ${relativePath} (${store.scope} scope)`
+      })
     },
   })
 }
@@ -272,23 +283,25 @@ export function createMemoryPromote(state: MemFSState): ToolDefinition {
     async execute(args) {
       const { absPath, store, relativePath } = await resolvePath(state, args.path)
 
-      // Check if already hot
-      if (isHot(relativePath, state.config.hotDir)) {
-        return `Error: ${relativePath} is already in ${state.config.hotDir}/. Nothing to promote.`
-      }
+      return state.withFileLock(absPath, async () => {
+        // Check if already hot
+        if (isHot(relativePath, state.config.hotDir)) {
+          return `Error: ${relativePath} is already in ${state.config.hotDir}/. Nothing to promote.`
+        }
 
-      // Compute new path in system/
-      const filename = path.basename(relativePath)
-      const newRelPath = `${state.config.hotDir}/${filename}`
-      const newAbsPath = path.join(store.root, newRelPath)
+        // Compute new path in system/
+        const filename = path.basename(relativePath)
+        const newRelPath = `${state.config.hotDir}/${filename}`
+        const newAbsPath = path.join(store.root, newRelPath)
 
-      // Ensure system/ directory exists
-      await mkdir(path.dirname(newAbsPath), { recursive: true })
+        // Ensure system/ directory exists
+        await mkdir(path.dirname(newAbsPath), { recursive: true })
 
-      // Move the file
-      await rename(absPath, newAbsPath)
+        // Move the file
+        await rename(absPath, newAbsPath)
 
-      return `Promoted ${relativePath} → ${newRelPath} (now hot, pinned in system prompt)`
+        return `Promoted ${relativePath} → ${newRelPath} (now hot, pinned in system prompt)`
+      })
     },
   })
 }
@@ -307,23 +320,25 @@ export function createMemoryDemote(state: MemFSState): ToolDefinition {
     async execute(args) {
       const { absPath, store, relativePath } = await resolvePath(state, args.path)
 
-      // Check if actually hot
-      if (!isHot(relativePath, state.config.hotDir)) {
-        return `Error: ${relativePath} is not in ${state.config.hotDir}/. Nothing to demote.`
-      }
+      return state.withFileLock(absPath, async () => {
+        // Check if actually hot
+        if (!isHot(relativePath, state.config.hotDir)) {
+          return `Error: ${relativePath} is not in ${state.config.hotDir}/. Nothing to demote.`
+        }
 
-      // Compute new path in reference/
-      const filename = path.basename(relativePath)
-      const newRelPath = `reference/${filename}`
-      const newAbsPath = path.join(store.root, newRelPath)
+        // Compute new path in reference/
+        const filename = path.basename(relativePath)
+        const newRelPath = `reference/${filename}`
+        const newAbsPath = path.join(store.root, newRelPath)
 
-      // Ensure reference/ directory exists
-      await mkdir(path.dirname(newAbsPath), { recursive: true })
+        // Ensure reference/ directory exists
+        await mkdir(path.dirname(newAbsPath), { recursive: true })
 
-      // Move the file
-      await rename(absPath, newAbsPath)
+        // Move the file
+        await rename(absPath, newAbsPath)
 
-      return `Demoted ${relativePath} → ${newRelPath} (now cold, tree-only)`
+        return `Demoted ${relativePath} → ${newRelPath} (now cold, tree-only)`
+      })
     },
   })
 }
@@ -376,36 +391,38 @@ export function createMemoryHistory(state: MemFSState): ToolDefinition {
         .describe("Maximum number of commits to return (default: 10)"),
     },
     async execute(args) {
-      const limit = args.limit ?? 10
+      return state.withGitLock(async () => {
+        const limit = args.limit ?? 10
 
-      // Gather logs from all stores
-      const allCommits = []
+        // Gather logs from all stores
+        const allCommits = []
 
-      for (const store of state.stores) {
-        const git = state.gitInstances.get(store.root)
-        if (!git) continue
+        for (const store of state.stores) {
+          const git = state.gitInstances.get(store.root)
+          if (!git) continue
 
-        const commits = await getLog(git, limit)
-        for (const c of commits) {
-          allCommits.push({
-            ...c,
-            scope: store.scope,
-          })
+          const commits = await getLog(git, limit)
+          for (const c of commits) {
+            allCommits.push({
+              ...c,
+              scope: store.scope,
+            })
+          }
         }
-      }
 
-      if (allCommits.length === 0) {
-        return "(no history yet)"
-      }
+        if (allCommits.length === 0) {
+          return "(no history yet)"
+        }
 
-      // Sort by date descending
-      allCommits.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        // Sort by date descending
+        allCommits.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-      const lines = allCommits.slice(0, limit).map(
-        (c) => `${c.hash} [${c.scope}] ${c.message} (${c.date})`
-      )
+        const lines = allCommits.slice(0, limit).map(
+          (c) => `${c.hash} [${c.scope}] ${c.message} (${c.date})`
+        )
 
-      return lines.join("\n")
+        return lines.join("\n")
+      })
     },
   })
 }
@@ -422,20 +439,22 @@ export function createMemoryRollback(state: MemFSState): ToolDefinition {
       commitHash: tool.schema.string().describe("Git commit hash to revert to (from memory_history)"),
     },
     async execute(args) {
-      // Try rollback on each store until one succeeds
-      for (const store of state.stores) {
-        const git = state.gitInstances.get(store.root)
-        if (!git) continue
+      return state.withGitLock(async () => {
+        // Try rollback on each store until one succeeds
+        for (const store of state.stores) {
+          const git = state.gitInstances.get(store.root)
+          if (!git) continue
 
-        try {
-          const newHash = await rollback(git, args.commitHash)
-          return `Rolled back ${store.scope} memory to ${args.commitHash.slice(0, 7)}. New commit: ${newHash}`
-        } catch {
-          // This store doesn't have that commit — try next
+          try {
+            const newHash = await rollback(git, args.commitHash)
+            return `Rolled back ${store.scope} memory to ${args.commitHash.slice(0, 7)}. New commit: ${newHash}`
+          } catch {
+            // This store doesn't have that commit — try next
+          }
         }
-      }
 
-      return `Error: Commit ${args.commitHash} not found in any memory store. Use memory_history to see available commits.`
+        return `Error: Commit ${args.commitHash} not found in any memory store. Use memory_history to see available commits.`
+      })
     },
   })
 }

@@ -12,6 +12,7 @@ import type { FSWatcher } from "fs"
 import type { SimpleGit } from "simple-git"
 
 import { commitAll } from "./git"
+import type { LockFn } from "./lock"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,28 +35,26 @@ export interface WatcherHandle {
  * filenames into a set and debounces. When the debounce timer fires,
  * commits all changes with a message listing the changed files.
  *
- * @param dir        - Absolute path to the memory root directory.
- * @param git        - SimpleGit instance bound to the memory directory.
- * @param debounceMs - Debounce delay in milliseconds. Default: 2000.
+ * @param dir         - Absolute path to the memory root directory.
+ * @param git         - SimpleGit instance bound to the memory directory.
+ * @param debounceMs  - Debounce delay in milliseconds. Default: 2000.
+ * @param withGitLock - Git operation lock to serialize commits with rollbacks.
  * @returns A `WatcherHandle` to stop the watcher.
  */
 export function startWatcher(
   dir: string,
   git: SimpleGit,
   debounceMs: number = 2000,
+  withGitLock?: LockFn,
 ): WatcherHandle {
   let timer: ReturnType<typeof setTimeout> | null = null
   let changedFiles = new Set<string>()
-  let committing = false
 
   const doCommit = async (): Promise<void> => {
-    if (committing) return
-    committing = true
-
     const files = [...changedFiles]
     changedFiles = new Set()
 
-    try {
+    const commitFn = async (): Promise<void> => {
       const fileList = files
         .filter((f) => !f.startsWith(".git"))
         .slice(0, 5)
@@ -66,10 +65,16 @@ export function startWatcher(
         : "memory: update files"
 
       await commitAll(git, message)
+    }
+
+    try {
+      if (withGitLock) {
+        await withGitLock(commitFn)
+      } else {
+        await commitFn()
+      }
     } catch {
       // Commit failed — silently ignore (will retry on next change)
-    } finally {
-      committing = false
     }
   }
 
