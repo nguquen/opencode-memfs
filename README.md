@@ -13,38 +13,23 @@ All changes are automatically committed to a local git repo via a filesystem wat
 
 ## Installation
 
-Add to your OpenCode config (`~/.config/opencode/config.json`):
+Add to your OpenCode config (`~/.config/opencode/opencode.json`):
 
 ```json
 {
-  "plugin": {
-    "opencode-memfs": {
-      "url": "https://github.com/nguquen/opencode-memfs"
-    }
-  }
+  "plugin": ["opencode-memfs"]
 }
 ```
 
-Or install locally:
-
-```bash
-git clone https://github.com/nguquen/opencode-memfs.git
-cd opencode-memfs
-npm install
-npm run build
-```
-
-Then reference the local path in your config:
+Optionally, pin to a specific version:
 
 ```json
 {
-  "plugin": {
-    "opencode-memfs": {
-      "url": "./path/to/opencode-memfs"
-    }
-  }
+  "plugin": ["opencode-memfs@0.0.1"]
 }
 ```
+
+Restart OpenCode and you're ready to go. OpenCode fetches unpinned plugins from npm on each startup; pinned versions are cached.
 
 ## Directory Structure
 
