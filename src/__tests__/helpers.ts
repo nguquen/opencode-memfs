@@ -129,7 +129,7 @@ export async function createTestState(
 
   return {
     stores: [store],
-    gitInstances: new Map([[tmpDir, git]]),
+    git,
     config: { ...TEST_CONFIG, ...configOverrides },
     withFileLock: createFileLock(),
     withGitLock: createMutex(),

@@ -37,8 +37,8 @@ import type { FileLockFn, LockFn } from "./lock"
 export interface MemFSState {
   /** All memory stores (project + optional global). */
   stores: MemoryStorePaths[]
-  /** Git instances keyed by store root. */
-  gitInstances: Map<string, SimpleGit>
+  /** Single git instance (all stores share one repo). */
+  git: SimpleGit
   /** Plugin configuration. */
   config: MemFSConfig
   /** Per-file lock for serializing read-modify-write operations. */
@@ -84,15 +84,6 @@ async function resolvePath(
     store,
     relativePath: normalized,
   }
-}
-
-/** Get the git instance for a store, throwing if unavailable. */
-function getGit(state: MemFSState, store: MemoryStorePaths): SimpleGit {
-  const git = state.gitInstances.get(store.root)
-  if (!git) {
-    throw new Error(`Git not initialized for ${store.scope} memory store`)
-  }
-  return git
 }
 
 // ---------------------------------------------------------------------------
@@ -414,32 +405,13 @@ export function createMemoryHistory(state: MemFSState): ToolDefinition {
     async execute(args) {
       return state.withGitLock(async () => {
         const limit = args.limit ?? 10
+        const commits = await getLog(state.git, limit)
 
-        // Gather logs from all stores, deduplicating by commit hash
-        // (stores may share the same git repo)
-        const seen = new Set<string>()
-        const allCommits = []
-
-        for (const store of state.stores) {
-          const git = state.gitInstances.get(store.root)
-          if (!git) continue
-
-          const commits = await getLog(git, limit)
-          for (const c of commits) {
-            if (seen.has(c.hash)) continue
-            seen.add(c.hash)
-            allCommits.push(c)
-          }
-        }
-
-        if (allCommits.length === 0) {
+        if (commits.length === 0) {
           return "(no history yet)"
         }
 
-        // Sort by date descending
-        allCommits.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-        const lines = allCommits.slice(0, limit).map(
+        const lines = commits.map(
           (c) => `${c.hash} ${c.message} (${c.date})`
         )
 
@@ -462,20 +434,12 @@ export function createMemoryRollback(state: MemFSState): ToolDefinition {
     },
     async execute(args) {
       return state.withGitLock(async () => {
-        // All stores share one git repo — use the first available instance
-        for (const store of state.stores) {
-          const git = state.gitInstances.get(store.root)
-          if (!git) continue
-
-          try {
-            const newHash = await rollback(git, args.commitHash)
-            return `Rolled back memory to ${args.commitHash.slice(0, 7)}. New commit: ${newHash}`
-          } catch {
-            // Commit not found — try next git instance (if different)
-          }
+        try {
+          const newHash = await rollback(state.git, args.commitHash)
+          return `Rolled back memory to ${args.commitHash.slice(0, 7)}. New commit: ${newHash}`
+        } catch {
+          return `Error: Commit ${args.commitHash} not found. Use memory_history to see available commits.`
         }
-
-        return `Error: Commit ${args.commitHash} not found. Use memory_history to see available commits.`
       })
     },
   })

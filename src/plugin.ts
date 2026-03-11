@@ -274,11 +274,7 @@ export const MemFSPlugin: Plugin = async (input) => {
   // Single git repo at the memory root
   const git: SimpleGit = await ensureRepo(memoryRoot)
 
-  // All stores share the same git instance — map each store root to it
-  const gitInstances = new Map<string, SimpleGit>()
-  for (const store of stores) {
-    gitInstances.set(store.root, git)
-  }
+
 
   // Single watcher at the memory root (uses git lock to serialize commits)
   const watcher: WatcherHandle = startWatcher(
@@ -294,7 +290,7 @@ export const MemFSPlugin: Plugin = async (input) => {
 
   const state: MemFSState = {
     stores,
-    gitInstances,
+    git,
     config,
     withFileLock,
     withGitLock,
