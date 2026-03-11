@@ -210,20 +210,37 @@ describe("memory_edit", () => {
   })
 
   it("should reject edit that would exceed limit", async () => {
-    // Create a file near its limit
+    // Create a file near its limit with a unique marker for replacement
     const tool = createMemoryWrite(state)
+    const content = "a".repeat(4980) + "MARKER_END"
     await tool.execute(
-      { path: "system/test.md", content: "a".repeat(4990), limit: 5000 },
+      { path: "system/test.md", content, limit: 5000 },
       stubContext,
     )
 
     const editTool = createMemoryEdit(state)
     const result = await editTool.execute(
-      { path: "system/test.md", oldString: "a", newString: "a".repeat(20) },
+      { path: "system/test.md", oldString: "MARKER_END", newString: "b".repeat(100) },
       stubContext,
     )
     expect(result).toContain("Error")
     expect(result).toContain("exceed limit")
+  })
+
+  it("should reject edit when oldString has multiple matches", async () => {
+    const tool = createMemoryWrite(state)
+    await tool.execute(
+      { path: "system/test.md", content: "foo bar foo baz" },
+      stubContext,
+    )
+
+    const editTool = createMemoryEdit(state)
+    const result = await editTool.execute(
+      { path: "system/test.md", oldString: "foo", newString: "qux" },
+      stubContext,
+    )
+    expect(result).toContain("Error")
+    expect(result).toContain("2 matches")
   })
 })
 

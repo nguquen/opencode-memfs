@@ -12,7 +12,7 @@
  * Single git repo and single filesystem watcher at the memory root.
  */
 
-import { mkdir, readFile, writeFile } from "fs/promises"
+import { mkdir, readFile } from "fs/promises"
 import { createHash } from "crypto"
 import { homedir } from "os"
 import path from "path"
@@ -27,6 +27,7 @@ import {
   parseFrontmatter,
   serializeFrontmatter,
   defaultFrontmatter,
+  atomicWrite,
 } from "./frontmatter"
 import { ensureRepo } from "./git"
 import { ensureSeed } from "./seed"
@@ -130,8 +131,7 @@ export async function writeRegistry(
   const tableBody = serializeProjectsTable(entries)
   const content = serializeFrontmatter(fm, tableBody)
 
-  await mkdir(path.dirname(registryPath), { recursive: true })
-  await writeFile(registryPath, content, "utf-8")
+  await atomicWrite(registryPath, content)
 }
 
 /**

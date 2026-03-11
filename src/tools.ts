@@ -9,7 +9,7 @@
  * `ToolDefinition` compatible with the plugin SDK's `tool()` helper.
  */
 
-import { readFile, unlink, rename, mkdir } from "fs/promises"
+import { access, readFile, unlink, rename, mkdir } from "fs/promises"
 import path from "path"
 
 import type { SimpleGit } from "simple-git"
@@ -70,7 +70,7 @@ async function resolvePath(
   for (const store of state.stores) {
     const absPath = path.join(store.root, normalized)
     try {
-      await readFile(absPath)
+      await access(absPath)
       return { absPath, store, relativePath: normalized }
     } catch {
       // File doesn't exist in this store, try next
@@ -213,9 +213,14 @@ export function createMemoryEdit(state: MemFSState): ToolDefinition {
           return `Error: ${relativePath} is readonly. Cannot edit.`
         }
 
-        // Find and replace
+        // Find and replace — reject if ambiguous (multiple matches)
         if (!file.content.includes(args.oldString)) {
           return `Error: oldString not found in ${relativePath}. Make sure it matches exactly.`
+        }
+
+        const matchCount = file.content.split(args.oldString).length - 1
+        if (matchCount > 1) {
+          return `Error: Found ${matchCount} matches for oldString in ${relativePath}. Provide more surrounding context to identify the correct match.`
         }
 
         const newContent = file.content.replace(args.oldString, args.newString)
@@ -294,6 +299,14 @@ export function createMemoryPromote(state: MemFSState): ToolDefinition {
         const newRelPath = `${state.config.hotDir}/${filename}`
         const newAbsPath = path.join(store.root, newRelPath)
 
+        // Check for destination conflict
+        try {
+          await access(newAbsPath)
+          return `Error: ${newRelPath} already exists. Rename or delete it before promoting.`
+        } catch {
+          // Destination doesn't exist — safe to proceed
+        }
+
         // Ensure system/ directory exists
         await mkdir(path.dirname(newAbsPath), { recursive: true })
 
@@ -330,6 +343,14 @@ export function createMemoryDemote(state: MemFSState): ToolDefinition {
         const filename = path.basename(relativePath)
         const newRelPath = `reference/${filename}`
         const newAbsPath = path.join(store.root, newRelPath)
+
+        // Check for destination conflict
+        try {
+          await access(newAbsPath)
+          return `Error: ${newRelPath} already exists. Rename or delete it before demoting.`
+        } catch {
+          // Destination doesn't exist — safe to proceed
+        }
 
         // Ensure reference/ directory exists
         await mkdir(path.dirname(newAbsPath), { recursive: true })
@@ -394,7 +415,9 @@ export function createMemoryHistory(state: MemFSState): ToolDefinition {
       return state.withGitLock(async () => {
         const limit = args.limit ?? 10
 
-        // Gather logs from all stores
+        // Gather logs from all stores, deduplicating by commit hash
+        // (stores may share the same git repo)
+        const seen = new Set<string>()
         const allCommits = []
 
         for (const store of state.stores) {
@@ -403,10 +426,9 @@ export function createMemoryHistory(state: MemFSState): ToolDefinition {
 
           const commits = await getLog(git, limit)
           for (const c of commits) {
-            allCommits.push({
-              ...c,
-              scope: store.scope,
-            })
+            if (seen.has(c.hash)) continue
+            seen.add(c.hash)
+            allCommits.push(c)
           }
         }
 
@@ -418,7 +440,7 @@ export function createMemoryHistory(state: MemFSState): ToolDefinition {
         allCommits.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
         const lines = allCommits.slice(0, limit).map(
-          (c) => `${c.hash} [${c.scope}] ${c.message} (${c.date})`
+          (c) => `${c.hash} ${c.message} (${c.date})`
         )
 
         return lines.join("\n")
@@ -440,20 +462,20 @@ export function createMemoryRollback(state: MemFSState): ToolDefinition {
     },
     async execute(args) {
       return state.withGitLock(async () => {
-        // Try rollback on each store until one succeeds
+        // All stores share one git repo — use the first available instance
         for (const store of state.stores) {
           const git = state.gitInstances.get(store.root)
           if (!git) continue
 
           try {
             const newHash = await rollback(git, args.commitHash)
-            return `Rolled back ${store.scope} memory to ${args.commitHash.slice(0, 7)}. New commit: ${newHash}`
+            return `Rolled back memory to ${args.commitHash.slice(0, 7)}. New commit: ${newHash}`
           } catch {
-            // This store doesn't have that commit — try next
+            // Commit not found — try next git instance (if different)
           }
         }
 
-        return `Error: Commit ${args.commitHash} not found in any memory store. Use memory_history to see available commits.`
+        return `Error: Commit ${args.commitHash} not found. Use memory_history to see available commits.`
       })
     },
   })
