@@ -216,9 +216,3 @@ If a commit spans multiple tasks, use the primary task. If no task applies, omit
 ```
 chore: update dependencies
 ```
-
-## Task Tracking
-
-Tasks are tracked in the memento vault at `/workspaces/memento/01 Projects/OpenCode MemFS/Tasks/`.
-Each task file has an `id` field (e.g., `TASK-9`, `TASK-10`). Source code TODOs reference
-these IDs. Current task range: TASK-9 through TASK-32.
