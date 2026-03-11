@@ -1,6 +1,6 @@
 {
   "name": "opencode-memfs",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "OpenCode memory plugin — git-backed, two-tier hot/cold MemFS with progressive disclosure",
   "main": "dist/index.js",
   "type": "module",
