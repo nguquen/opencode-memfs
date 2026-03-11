@@ -12,7 +12,7 @@
  * Single git repo and single filesystem watcher at the memory root.
  */
 
-import { mkdir, readFile, writeFile } from "fs/promises"
+import { mkdir, readFile } from "fs/promises"
 import { createHash } from "crypto"
 import { homedir } from "os"
 import path from "path"
@@ -27,6 +27,7 @@ import {
   parseFrontmatter,
   serializeFrontmatter,
   defaultFrontmatter,
+  atomicWrite,
 } from "./frontmatter"
 import { ensureRepo } from "./git"
 import { ensureSeed } from "./seed"
@@ -130,8 +131,7 @@ export async function writeRegistry(
   const tableBody = serializeProjectsTable(entries)
   const content = serializeFrontmatter(fm, tableBody)
 
-  await mkdir(path.dirname(registryPath), { recursive: true })
-  await writeFile(registryPath, content, "utf-8")
+  await atomicWrite(registryPath, content)
 }
 
 /**
@@ -170,7 +170,7 @@ export async function resolveProjectName(
   registryPath: string,
   projectDir: string,
   config: MemFSConfig,
-): Promise<string> {
+): Promise<string | null> {
   const entries = await readRegistry(registryPath, config.defaultLimit)
   const today = new Date().toISOString().slice(0, 10)
 
@@ -182,12 +182,10 @@ export async function resolveProjectName(
     return existing.name
   }
 
-  // Derive name from basename, skip registration for invalid names
+  // Reject invalid names entirely — no registration, no directory
   const basename = path.basename(projectDir)
   if (!isValidProjectName(basename)) {
-    // Don't register projects with garbled/internal IDs — just use the
-    // basename without persisting to the registry.
-    return basename
+    return null
   }
 
   // Check for basename collision
@@ -245,21 +243,22 @@ export const MemFSPlugin: Plugin = async (input) => {
     config,
   )
 
-  // Project store: ~/.config/opencode/memory/projects/<name>/
-  const projectRoot = path.join(memoryRoot, "projects", projectName)
-  await mkdir(projectRoot, { recursive: true })
-
-  // Seed project store
-  await ensureSeed(projectRoot, config, "project")
-
   // -----------------------------------------------------------------------
-  // Build stores array (project first — default for new file writes)
+  // Build stores array
   // -----------------------------------------------------------------------
 
-  const stores: MemoryStorePaths[] = [
-    { root: projectRoot, scope: "project" },
-    { root: globalRoot, scope: "global" },
-  ]
+  const stores: MemoryStorePaths[] = []
+
+  // Only create project store for valid project names
+  if (projectName !== null) {
+    const projectRoot = path.join(memoryRoot, "projects", projectName)
+    await mkdir(projectRoot, { recursive: true })
+    await ensureSeed(projectRoot, config, "project")
+    stores.push({ root: projectRoot, scope: "project" })
+  }
+
+  // Global store is always included
+  stores.push({ root: globalRoot, scope: "global" })
 
   // -----------------------------------------------------------------------
   // Concurrency locks
@@ -275,10 +274,7 @@ export const MemFSPlugin: Plugin = async (input) => {
   // Single git repo at the memory root
   const git: SimpleGit = await ensureRepo(memoryRoot)
 
-  // Both stores share the same git instance
-  const gitInstances = new Map<string, SimpleGit>()
-  gitInstances.set(projectRoot, git)
-  gitInstances.set(globalRoot, git)
+
 
   // Single watcher at the memory root (uses git lock to serialize commits)
   const watcher: WatcherHandle = startWatcher(
@@ -294,7 +290,7 @@ export const MemFSPlugin: Plugin = async (input) => {
 
   const state: MemFSState = {
     stores,
-    gitInstances,
+    git,
     config,
     withFileLock,
     withGitLock,

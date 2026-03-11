@@ -210,20 +210,37 @@ describe("memory_edit", () => {
   })
 
   it("should reject edit that would exceed limit", async () => {
-    // Create a file near its limit
+    // Create a file near its limit with a unique marker for replacement
     const tool = createMemoryWrite(state)
+    const content = "a".repeat(4980) + "MARKER_END"
     await tool.execute(
-      { path: "system/test.md", content: "a".repeat(4990), limit: 5000 },
+      { path: "system/test.md", content, limit: 5000 },
       stubContext,
     )
 
     const editTool = createMemoryEdit(state)
     const result = await editTool.execute(
-      { path: "system/test.md", oldString: "a", newString: "a".repeat(20) },
+      { path: "system/test.md", oldString: "MARKER_END", newString: "b".repeat(100) },
       stubContext,
     )
     expect(result).toContain("Error")
     expect(result).toContain("exceed limit")
+  })
+
+  it("should reject edit when oldString has multiple matches", async () => {
+    const tool = createMemoryWrite(state)
+    await tool.execute(
+      { path: "system/test.md", content: "foo bar foo baz" },
+      stubContext,
+    )
+
+    const editTool = createMemoryEdit(state)
+    const result = await editTool.execute(
+      { path: "system/test.md", oldString: "foo", newString: "qux" },
+      stubContext,
+    )
+    expect(result).toContain("Error")
+    expect(result).toContain("2 matches")
   })
 })
 
@@ -362,8 +379,7 @@ describe("memory_history", () => {
 
   it("should include new commits", async () => {
     await writeTestFile(tmpDir, "system/test.md", FIXTURE_FULL)
-    const git = state.gitInstances.get(tmpDir)!
-    await commitAll(git, "test: added file")
+    await commitAll(state.git, "test: added file")
 
     const tool = createMemoryHistory(state)
     const result = await tool.execute({ limit: 10 }, stubContext)
@@ -378,17 +394,16 @@ describe("memory_history", () => {
 describe("memory_rollback", () => {
   it("should revert to a previous commit", async () => {
     await writeTestFile(tmpDir, "system/test.md", "v1 content")
-    const git = state.gitInstances.get(tmpDir)!
-    await commitAll(git, "v1")
+    await commitAll(state.git, "v1")
 
     // Get v1 hash
     const { getLog } = await import("../git")
-    const log1 = await getLog(git)
+    const log1 = await getLog(state.git)
     const v1Hash = log1[0].hash
 
     // Write v2
     await writeTestFile(tmpDir, "system/test.md", "v2 content")
-    await commitAll(git, "v2")
+    await commitAll(state.git, "v2")
 
     const tool = createMemoryRollback(state)
     const result = await tool.execute(

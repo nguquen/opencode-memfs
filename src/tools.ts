@@ -9,7 +9,7 @@
  * `ToolDefinition` compatible with the plugin SDK's `tool()` helper.
  */
 
-import { readFile, unlink, rename, mkdir } from "fs/promises"
+import { access, readFile, unlink, rename, mkdir } from "fs/promises"
 import path from "path"
 
 import type { SimpleGit } from "simple-git"
@@ -37,8 +37,8 @@ import type { FileLockFn, LockFn } from "./lock"
 export interface MemFSState {
   /** All memory stores (project + optional global). */
   stores: MemoryStorePaths[]
-  /** Git instances keyed by store root. */
-  gitInstances: Map<string, SimpleGit>
+  /** Single git instance (all stores share one repo). */
+  git: SimpleGit
   /** Plugin configuration. */
   config: MemFSConfig
   /** Per-file lock for serializing read-modify-write operations. */
@@ -70,7 +70,7 @@ async function resolvePath(
   for (const store of state.stores) {
     const absPath = path.join(store.root, normalized)
     try {
-      await readFile(absPath)
+      await access(absPath)
       return { absPath, store, relativePath: normalized }
     } catch {
       // File doesn't exist in this store, try next
@@ -84,15 +84,6 @@ async function resolvePath(
     store,
     relativePath: normalized,
   }
-}
-
-/** Get the git instance for a store, throwing if unavailable. */
-function getGit(state: MemFSState, store: MemoryStorePaths): SimpleGit {
-  const git = state.gitInstances.get(store.root)
-  if (!git) {
-    throw new Error(`Git not initialized for ${store.scope} memory store`)
-  }
-  return git
 }
 
 // ---------------------------------------------------------------------------
@@ -213,9 +204,14 @@ export function createMemoryEdit(state: MemFSState): ToolDefinition {
           return `Error: ${relativePath} is readonly. Cannot edit.`
         }
 
-        // Find and replace
+        // Find and replace — reject if ambiguous (multiple matches)
         if (!file.content.includes(args.oldString)) {
           return `Error: oldString not found in ${relativePath}. Make sure it matches exactly.`
+        }
+
+        const matchCount = file.content.split(args.oldString).length - 1
+        if (matchCount > 1) {
+          return `Error: Found ${matchCount} matches for oldString in ${relativePath}. Provide more surrounding context to identify the correct match.`
         }
 
         const newContent = file.content.replace(args.oldString, args.newString)
@@ -294,6 +290,14 @@ export function createMemoryPromote(state: MemFSState): ToolDefinition {
         const newRelPath = `${state.config.hotDir}/${filename}`
         const newAbsPath = path.join(store.root, newRelPath)
 
+        // Check for destination conflict
+        try {
+          await access(newAbsPath)
+          return `Error: ${newRelPath} already exists. Rename or delete it before promoting.`
+        } catch {
+          // Destination doesn't exist — safe to proceed
+        }
+
         // Ensure system/ directory exists
         await mkdir(path.dirname(newAbsPath), { recursive: true })
 
@@ -330,6 +334,14 @@ export function createMemoryDemote(state: MemFSState): ToolDefinition {
         const filename = path.basename(relativePath)
         const newRelPath = `reference/${filename}`
         const newAbsPath = path.join(store.root, newRelPath)
+
+        // Check for destination conflict
+        try {
+          await access(newAbsPath)
+          return `Error: ${newRelPath} already exists. Rename or delete it before demoting.`
+        } catch {
+          // Destination doesn't exist — safe to proceed
+        }
 
         // Ensure reference/ directory exists
         await mkdir(path.dirname(newAbsPath), { recursive: true })
@@ -393,32 +405,14 @@ export function createMemoryHistory(state: MemFSState): ToolDefinition {
     async execute(args) {
       return state.withGitLock(async () => {
         const limit = args.limit ?? 10
+        const commits = await getLog(state.git, limit)
 
-        // Gather logs from all stores
-        const allCommits = []
-
-        for (const store of state.stores) {
-          const git = state.gitInstances.get(store.root)
-          if (!git) continue
-
-          const commits = await getLog(git, limit)
-          for (const c of commits) {
-            allCommits.push({
-              ...c,
-              scope: store.scope,
-            })
-          }
-        }
-
-        if (allCommits.length === 0) {
+        if (commits.length === 0) {
           return "(no history yet)"
         }
 
-        // Sort by date descending
-        allCommits.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-        const lines = allCommits.slice(0, limit).map(
-          (c) => `${c.hash} [${c.scope}] ${c.message} (${c.date})`
+        const lines = commits.map(
+          (c) => `${c.hash} ${c.message} (${c.date})`
         )
 
         return lines.join("\n")
@@ -440,20 +434,12 @@ export function createMemoryRollback(state: MemFSState): ToolDefinition {
     },
     async execute(args) {
       return state.withGitLock(async () => {
-        // Try rollback on each store until one succeeds
-        for (const store of state.stores) {
-          const git = state.gitInstances.get(store.root)
-          if (!git) continue
-
-          try {
-            const newHash = await rollback(git, args.commitHash)
-            return `Rolled back ${store.scope} memory to ${args.commitHash.slice(0, 7)}. New commit: ${newHash}`
-          } catch {
-            // This store doesn't have that commit — try next
-          }
+        try {
+          const newHash = await rollback(state.git, args.commitHash)
+          return `Rolled back memory to ${args.commitHash.slice(0, 7)}. New commit: ${newHash}`
+        } catch {
+          return `Error: Commit ${args.commitHash} not found. Use memory_history to see available commits.`
         }
-
-        return `Error: Commit ${args.commitHash} not found in any memory store. Use memory_history to see available commits.`
       })
     },
   })

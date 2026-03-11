@@ -125,6 +125,20 @@ export async function rollback(
   git: SimpleGit,
   commitHash: string,
 ): Promise<string> {
+  // Get list of files at the target commit
+  const targetFiles = await git.raw(["ls-tree", "-r", "--name-only", commitHash])
+  const targetSet = new Set(targetFiles.trim().split("\n").filter(Boolean))
+
+  // Get list of files at HEAD (current state)
+  const headFiles = await git.raw(["ls-tree", "-r", "--name-only", "HEAD"])
+  const headList = headFiles.trim().split("\n").filter(Boolean)
+
+  // Remove files that exist at HEAD but not at the target commit
+  const toRemove = headList.filter((f) => !targetSet.has(f))
+  if (toRemove.length > 0) {
+    await git.rm(toRemove)
+  }
+
   // Checkout all files from the target commit
   await git.checkout([commitHash, "--", "."])
 
