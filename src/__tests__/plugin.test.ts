@@ -356,32 +356,6 @@ describe("resolveProjectName", () => {
     expect(name).toBe("project")
   })
 
-  it("should return null for invalid project names", async () => {
-    const registryPath = path.join(tmpDir, "system", "projects.md")
-
-    // Garbled internal ID — should be rejected entirely
-    const name = await resolveProjectName(
-      registryPath,
-      "/workspaces/L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGUtbWVtZnM",
-      TEST_CONFIG,
-    )
-    expect(name).toBeNull()
-
-    // Should NOT be persisted to the registry
-    const entries = await readRegistry(registryPath, TEST_CONFIG.defaultLimit)
-    expect(entries).toHaveLength(0)
-  })
-
-  it("should return null for base64-encoded directory names", async () => {
-    const registryPath = path.join(tmpDir, "system", "projects.md")
-
-    const name = await resolveProjectName(
-      registryPath,
-      "/workspaces/L3dvcmtzcGFjZXMvbWVtZW50bw",
-      TEST_CONFIG,
-    )
-    expect(name).toBeNull()
-  })
 })
 
 describe("isValidProjectName", () => {

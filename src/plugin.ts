@@ -170,7 +170,7 @@ export async function resolveProjectName(
   registryPath: string,
   projectDir: string,
   config: MemFSConfig,
-): Promise<string | null> {
+): Promise<string> {
   const entries = await readRegistry(registryPath, config.defaultLimit)
   const today = new Date().toISOString().slice(0, 10)
 
@@ -182,11 +182,8 @@ export async function resolveProjectName(
     return existing.name
   }
 
-  // Reject invalid names entirely — no registration, no directory
+  // Derive name from basename
   const basename = path.basename(projectDir)
-  if (!isValidProjectName(basename)) {
-    return null
-  }
 
   // Check for basename collision
   const collision = entries.find((e) => e.name === basename)
@@ -218,6 +215,14 @@ export async function resolveProjectName(
  * and a single filesystem watcher at the memory root.
  */
 export const MemFSPlugin: Plugin = async (input) => {
+  // Skip initialization entirely for invalid directory names (e.g. base64-encoded
+  // internal IDs). OpenCode calls the plugin factory once per project instance,
+  // so garbled directories get a no-op plugin — no stores, no git, no watcher.
+  const basename = path.basename(input.directory)
+  if (!isValidProjectName(basename)) {
+    return {}
+  }
+
   const config = await loadConfig()
 
   // -----------------------------------------------------------------------
@@ -247,18 +252,15 @@ export const MemFSPlugin: Plugin = async (input) => {
   // Build stores array
   // -----------------------------------------------------------------------
 
-  const stores: MemoryStorePaths[] = []
+  // Project store: ~/.config/opencode/memory/projects/<name>/
+  const projectRoot = path.join(memoryRoot, "projects", projectName)
+  await mkdir(projectRoot, { recursive: true })
+  await ensureSeed(projectRoot, config, "project")
 
-  // Only create project store for valid project names
-  if (projectName !== null) {
-    const projectRoot = path.join(memoryRoot, "projects", projectName)
-    await mkdir(projectRoot, { recursive: true })
-    await ensureSeed(projectRoot, config, "project")
-    stores.push({ root: projectRoot, scope: "project" })
-  }
-
-  // Global store is always included
-  stores.push({ root: globalRoot, scope: "global" })
+  const stores: MemoryStorePaths[] = [
+    { root: projectRoot, scope: "project" },
+    { root: globalRoot, scope: "global" },
+  ]
 
   // -----------------------------------------------------------------------
   // Concurrency locks
