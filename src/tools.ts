@@ -17,7 +17,7 @@ import type { SimpleGit } from "simple-git"
 import { tool } from "@opencode-ai/plugin"
 import type { ToolDefinition } from "@opencode-ai/plugin"
 
-import type { MemFSConfig, MemoryFrontmatter, MemoryStorePaths, MemoryScopeFilter } from "./types"
+import type { MemFSConfig, MemoryFrontmatter, MemoryScope, MemoryStorePaths, MemoryScopeFilter } from "./types"
 import {
   parseFrontmatter,
   defaultFrontmatter,
@@ -52,33 +52,28 @@ export interface MemFSState {
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve a relative memory path to an absolute path and its store.
+ * Resolve a relative memory path to an absolute path within the specified scope.
  *
- * Tries each store in order. If the file exists in a store, returns that.
- * If creating a new file, defaults to the first (project) store.
+ * The scope is required — the caller must specify which store to target.
+ * This prevents silent ambiguity when the same relative path exists in
+ * both project and global stores.
  *
  * @returns Object with `absPath`, `store`, and `relativePath`.
+ * @throws Error if no store matches the requested scope.
  */
-async function resolvePath(
+function resolvePath(
   state: MemFSState,
   relPath: string,
-): Promise<{ absPath: string; store: MemoryStorePaths; relativePath: string }> {
+  scope: MemoryScope,
+): { absPath: string; store: MemoryStorePaths; relativePath: string } {
   // Normalize path separators
   const normalized = relPath.replace(/\\/g, "/")
 
-  // Try to find the file in existing stores
-  for (const store of state.stores) {
-    const absPath = path.join(store.root, normalized)
-    try {
-      await access(absPath)
-      return { absPath, store, relativePath: normalized }
-    } catch {
-      // File doesn't exist in this store, try next
-    }
+  const store = state.stores.find((s) => s.scope === scope)
+  if (!store) {
+    throw new Error(`No ${scope} memory store available`)
   }
 
-  // Default to first store (project scope) for new files
-  const store = state.stores[0]
   return {
     absPath: path.join(store.root, normalized),
     store,
@@ -96,9 +91,10 @@ export function createMemoryRead(state: MemFSState): ToolDefinition {
     description: "Read a memory file with metadata. Returns path, description, char count, limit, readonly status, and full content.",
     args: {
       path: tool.schema.string().describe("Relative path to the memory file (e.g. 'system/persona.md')"),
+      scope: tool.schema.enum(["project", "global"]).describe("Memory scope to target"),
     },
     async execute(args) {
-      const { absPath, store, relativePath } = await resolvePath(state, args.path)
+      const { absPath, store, relativePath } = resolvePath(state, args.path, args.scope as MemoryScope)
 
       const file = await parseMemoryFile(
         absPath,
@@ -130,13 +126,14 @@ export function createMemoryWrite(state: MemFSState): ToolDefinition {
     description: "Create or fully replace a memory file. Auto-generates frontmatter defaults for omitted fields. Validates char limit and readonly status.",
     args: {
       path: tool.schema.string().describe("Relative path to the memory file"),
+      scope: tool.schema.enum(["project", "global"]).describe("Memory scope to target"),
       content: tool.schema.string().describe("Full content body to write"),
       description: tool.schema.string().optional().describe("File description (auto-generated from filename if omitted)"),
       limit: tool.schema.number().optional().describe("Character limit (defaults to config.defaultLimit)"),
       readonly: tool.schema.boolean().optional().describe("Whether the file is readonly (defaults to false)"),
     },
     async execute(args) {
-      const { absPath, store, relativePath } = await resolvePath(state, args.path)
+      const { absPath, store, relativePath } = resolvePath(state, args.path, args.scope as MemoryScope)
 
       return state.withFileLock(absPath, async () => {
         // Check if file exists — preserve existing frontmatter on overwrite
@@ -184,11 +181,12 @@ export function createMemoryEdit(state: MemFSState): ToolDefinition {
     description: "Partial edit of a memory file using exact oldString/newString replacement. Same semantics as the Edit tool.",
     args: {
       path: tool.schema.string().describe("Relative path to the memory file"),
+      scope: tool.schema.enum(["project", "global"]).describe("Memory scope to target"),
       oldString: tool.schema.string().describe("Exact string to find in the file body"),
       newString: tool.schema.string().describe("Replacement string"),
     },
     async execute(args) {
-      const { absPath, store, relativePath } = await resolvePath(state, args.path)
+      const { absPath, store, relativePath } = resolvePath(state, args.path, args.scope as MemoryScope)
 
       return state.withFileLock(absPath, async () => {
         // Read and parse
@@ -240,9 +238,10 @@ export function createMemoryDelete(state: MemFSState): ToolDefinition {
     description: "Delete a memory file. Validates that the file exists and is not readonly.",
     args: {
       path: tool.schema.string().describe("Relative path to the memory file to delete"),
+      scope: tool.schema.enum(["project", "global"]).describe("Memory scope to target"),
     },
     async execute(args) {
-      const { absPath, store, relativePath } = await resolvePath(state, args.path)
+      const { absPath, store, relativePath } = resolvePath(state, args.path, args.scope as MemoryScope)
 
       return state.withFileLock(absPath, async () => {
         // Read and parse to check readonly
@@ -275,9 +274,10 @@ export function createMemoryPromote(state: MemFSState): ToolDefinition {
     description: "Move a cold file into the system/ directory (make it hot). The file will be pinned in the system prompt.",
     args: {
       path: tool.schema.string().describe("Relative path to the cold file to promote"),
+      scope: tool.schema.enum(["project", "global"]).describe("Memory scope to target"),
     },
     async execute(args) {
-      const { absPath, store, relativePath } = await resolvePath(state, args.path)
+      const { absPath, store, relativePath } = resolvePath(state, args.path, args.scope as MemoryScope)
 
       return state.withFileLock(absPath, async () => {
         // Check if already hot
@@ -320,9 +320,10 @@ export function createMemoryDemote(state: MemFSState): ToolDefinition {
     description: "Move a hot file from system/ into reference/ (make it cold). The file will only appear as a tree entry.",
     args: {
       path: tool.schema.string().describe("Relative path to the hot file to demote"),
+      scope: tool.schema.enum(["project", "global"]).describe("Memory scope to target"),
     },
     async execute(args) {
-      const { absPath, store, relativePath } = await resolvePath(state, args.path)
+      const { absPath, store, relativePath } = resolvePath(state, args.path, args.scope as MemoryScope)
 
       return state.withFileLock(absPath, async () => {
         // Check if actually hot

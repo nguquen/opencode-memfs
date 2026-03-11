@@ -9,30 +9,50 @@
  * Hook: experimental.chat.system.transform — inserts at position 1.
  */
 
-import type { MemoryFile, MemoryTreeEntry } from "./types"
+import type { MemoryFile, MemoryScope, MemoryTreeEntry } from "./types"
 
 // ---------------------------------------------------------------------------
 // Tree Rendering
 // ---------------------------------------------------------------------------
 
 /**
- * Render the `<tree>` section listing all memory files.
+ * Render scoped `<tree>` blocks for memory files.
  *
- * Each line shows: `path (chars/limit) — description`
+ * Partitions entries by scope and renders a separate `<tree scope="...">` block
+ * for each scope that has entries. This makes scope visually clear in the system
+ * prompt without prefixing every line.
  *
  * @param entries - Tree entries from `buildTree()`.
- * @returns The rendered `<tree>` block.
+ * @returns The rendered `<tree>` blocks joined by newlines.
  */
 export function renderTree(entries: MemoryTreeEntry[]): string {
   if (entries.length === 0) {
     return "<tree>\n(no memory files yet)\n</tree>"
   }
 
-  const lines = entries.map(
-    (e) => `${e.path} (${e.chars}/${e.limit}) — ${e.description}`
-  )
+  // Group entries by scope
+  const byScope = new Map<MemoryScope, MemoryTreeEntry[]>()
+  for (const entry of entries) {
+    const group = byScope.get(entry.scope) ?? []
+    group.push(entry)
+    byScope.set(entry.scope, group)
+  }
 
-  return `<tree>\n${lines.join("\n")}\n</tree>`
+  // Render each scope's tree block (global first for consistency)
+  const scopeOrder: MemoryScope[] = ["global", "project"]
+  const blocks: string[] = []
+
+  for (const scope of scopeOrder) {
+    const group = byScope.get(scope)
+    if (!group || group.length === 0) continue
+
+    const lines = group.map(
+      (e) => `${e.path} (${e.chars}/${e.limit}) — ${e.description}`
+    )
+    blocks.push(`<tree scope="${scope}">\n${lines.join("\n")}\n</tree>`)
+  }
+
+  return blocks.join("\n\n")
 }
 
 // ---------------------------------------------------------------------------
@@ -44,6 +64,9 @@ const INSTRUCTIONS = `<instructions>
 Your persistent memory is stored as markdown files.
 Files in system/ are pinned — you always see their full contents below.
 Other files are listed in the tree with descriptions only.
+
+Memory has two scopes: project (local to this project) and global (shared across all projects).
+All content tools require a scope parameter — check the tree to see which scope a file is in.
 
 To read a cold file: memory_read
 To update memory: memory_write (full replace) or memory_edit (partial)
@@ -96,7 +119,7 @@ export function renderHotFiles(hotFiles: MemoryFile[]): string {
 
   return hotFiles
     .map((file) => {
-      const attrs = `path="${file.path}" chars="${file.chars}" limit="${file.frontmatter.limit}"`
+      const attrs = `path="${file.path}" chars="${file.chars}" limit="${file.frontmatter.limit}" scope="${file.scope}"`
       const body = file.content.trim()
       if (body.length === 0) {
         return `<system ${attrs}>\n(empty)\n</system>`

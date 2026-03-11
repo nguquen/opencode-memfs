@@ -137,6 +137,43 @@ export async function createTestState(
 }
 
 /**
+ * Create a dual-scope MemFSState with both project and global stores.
+ *
+ * Sets up two subdirectories (projects/test/ and global/) under a shared
+ * git repo in tmpDir, mirroring the real centralized layout.
+ */
+export async function createDualStoreState(
+  tmpDir: string,
+  configOverrides: Partial<MemFSConfig> = {},
+): Promise<{ state: MemFSState; projectRoot: string; globalRoot: string }> {
+  const projectRoot = path.join(tmpDir, "projects", "test")
+  const globalRoot = path.join(tmpDir, "global")
+
+  // Create directory structures for both stores
+  for (const root of [projectRoot, globalRoot]) {
+    await mkdir(path.join(root, "system"), { recursive: true })
+    await mkdir(path.join(root, "reference"), { recursive: true })
+    await mkdir(path.join(root, "archive"), { recursive: true })
+  }
+
+  // Single git repo at the shared root
+  const git = await ensureRepo(tmpDir)
+
+  const state: MemFSState = {
+    stores: [
+      { root: projectRoot, scope: "project" },
+      { root: globalRoot, scope: "global" },
+    ],
+    git,
+    config: { ...TEST_CONFIG, ...configOverrides },
+    withFileLock: createFileLock(),
+    withGitLock: createMutex(),
+  }
+
+  return { state, projectRoot, globalRoot }
+}
+
+/**
  * Write a sample memory file to a test store.
  */
 export async function writeTestFile(
