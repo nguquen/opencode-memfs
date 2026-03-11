@@ -356,34 +356,31 @@ describe("resolveProjectName", () => {
     expect(name).toBe("project")
   })
 
-  it("should not register projects with invalid names", async () => {
+  it("should return null for invalid project names", async () => {
     const registryPath = path.join(tmpDir, "system", "projects.md")
 
-    // Base64-encoded internal ID
+    // Garbled internal ID — should be rejected entirely
     const name = await resolveProjectName(
       registryPath,
       "/workspaces/L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGUtbWVtZnM",
       TEST_CONFIG,
     )
-    expect(name).toBe("L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGUtbWVtZnM")
+    expect(name).toBeNull()
 
     // Should NOT be persisted to the registry
     const entries = await readRegistry(registryPath, TEST_CONFIG.defaultLimit)
-    expect(entries.find((e) => e.name === name)).toBeUndefined()
+    expect(entries).toHaveLength(0)
   })
 
-  it("should not register projects with token-prefixed names", async () => {
+  it("should return null for base64-encoded directory names", async () => {
     const registryPath = path.join(tmpDir, "system", "projects.md")
 
     const name = await resolveProjectName(
       registryPath,
-      "/workspaces/L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGUtbWVtZnM",
+      "/workspaces/L3dvcmtzcGFjZXMvbWVtZW50bw",
       TEST_CONFIG,
     )
-    expect(name).toBe("L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGUtbWVtZnM")
-
-    const entries = await readRegistry(registryPath, TEST_CONFIG.defaultLimit)
-    expect(entries.find((e) => e.name === name)).toBeUndefined()
+    expect(name).toBeNull()
   })
 })
 
