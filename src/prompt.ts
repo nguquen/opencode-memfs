@@ -66,7 +66,7 @@ Files in system/ are pinned — you always see their full contents below.
 Other files are listed in the tree with descriptions only.
 
 Memory has two scopes: project (local to this project) and global (shared across all projects).
-All content tools require a scope parameter — check the tree to see which scope a file is in.
+All memory tools require a scope parameter — check the tree to see which scope a file is in.
 
 To read a cold file: memory_read
 To update memory: memory_write (full replace) or memory_edit (partial)
