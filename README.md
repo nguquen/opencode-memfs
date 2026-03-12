@@ -21,15 +21,7 @@ Add to your OpenCode config (`~/.config/opencode/opencode.json`):
 }
 ```
 
-Optionally, pin to a specific version:
-
-```json
-{
-  "plugin": ["opencode-memfs@0.0.4"]
-}
-```
-
-Restart OpenCode and you're ready to go. OpenCode fetches unpinned plugins from npm on each startup; pinned versions are cached.
+Restart OpenCode and you're ready to go.
 
 ## Directory Structure
 
