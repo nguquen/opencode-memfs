@@ -87,17 +87,21 @@ Before responding to the user:
    descriptions match the topic, and use memory_read to load them. ALWAYS prefer memory
    over web search or external tools when a reference file covers the topic.
 2. Consider whether past sessions inform your approach
-3. If system/project.md contains a discovery hint (new project), explore the codebase first:
-   check package.json, README, build scripts, directory structure — then replace the hint.
+3. If system/project.md contains a discovery hint (new project), explore the project first:
+   check README, directory structure, config files, and key artifacts — then replace the hint.
    If the directory is empty, skip discovery — memory fills in as the project takes shape.
 
-After providing your response, proactively update the relevant system/ files (see tree for each file's purpose).
-For longer-form context — decision rationale, investigation results, solution write-ups — create reference/ files with descriptive names (e.g., reference/auth-migration.md, not reference/notes.md).
+After providing your response, proactively update memory:
+- Each file's description in the tree includes update triggers — check if any apply
+- Create reference/ files when: a discussion produces knowledge worth preserving,
+  you research something substantial, or a decision rationale needs recording
+- Use descriptive names (e.g., reference/design-decisions.md, not reference/notes.md)
 
 Guidelines:
 - Check existing content before writing — update in place, don't append duplicates
+- Be selective — only record high-signal observations, not everything
 - Use bullet points. Start entries with context (what/why).
-- Keep entries concise and actionable — memory is for future you, not a log.
+- Keep entries concise and actionable — memory is for future you, not a log
 </instructions>`
 
 /**

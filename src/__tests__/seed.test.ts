@@ -61,11 +61,17 @@ describe("ensureSeed (project)", () => {
     const raw = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")
     const { frontmatter, body } = parseFrontmatter(raw, "system/project.md")
 
-    expect(frontmatter.description).toBe("Key context, decisions, current state, conventions — scannable cheat sheet\nUpdate when: you learn project context, decisions, or conventions — not limited to code")
+    expect(frontmatter.description).toBe(
+      "Key context, decisions, current state, conventions — scannable cheat sheet\n" +
+      "Update when: you learn what the project is about, its purpose, or current state\n" +
+      "Update when: key decisions or conventions are established\n" +
+      "Update when: you discover build commands, architecture, or important paths\n" +
+      "Not limited to code — research topics, document structures, and workflows count"
+    )
     expect(frontmatter.limit).toBe(5000)
     expect(frontmatter.readonly).toBe(false)
     expect(body).toContain("New project")
-    expect(body).toContain("explore the codebase")
+    expect(body).toContain("explore the project")
   })
 
   it("should skip seeding if .md files already exist", async () => {
@@ -132,7 +138,8 @@ describe("ensureSeed (global)", () => {
     expect(personaFm.readonly).toBe(false)
     expect(personaFm.description).toBe(
       "Agent identity, behavior guidelines, communication style\n" +
-      "Update when: user customizes how you should act or you learn what works for them"
+      "Update when: user tells you how to behave (\"be more concise\", \"ask before doing X\")\n" +
+      "Update when: you learn what tone, verbosity, or proactivity level works for this user"
     )
 
     const humanRaw = await readFile(path.join(tmpDir, "system/human.md"), "utf-8")
@@ -140,7 +147,9 @@ describe("ensureSeed (global)", () => {
     expect(humanFm.readonly).toBe(false)
     expect(humanFm.description).toBe(
       "User preferences, habits, constraints, working style\n" +
-      "Update when: user states a preference, corrects you, or you observe a recurring pattern"
+      "Update when: user states a preference or constraint (\"I prefer...\", \"don't...\", \"always...\")\n" +
+      "Update when: user corrects you — record what they wanted instead\n" +
+      "Update when: you observe a pattern across interactions (e.g., consistently asks for concise answers)"
     )
   })
 })

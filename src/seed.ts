@@ -37,14 +37,17 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
     path: "system/persona.md",
     description: [
       "Agent identity, behavior guidelines, communication style",
-      "Update when: user customizes how you should act or you learn what works for them",
+      "Update when: user tells you how to behave (\"be more concise\", \"ask before doing X\")",
+      "Update when: you learn what tone, verbosity, or proactivity level works for this user",
     ].join("\n"),
   },
   {
     path: "system/human.md",
     description: [
       "User preferences, habits, constraints, working style",
-      "Update when: user states a preference, corrects you, or you observe a recurring pattern",
+      "Update when: user states a preference or constraint (\"I prefer...\", \"don't...\", \"always...\")",
+      "Update when: user corrects you — record what they wanted instead",
+      "Update when: you observe a pattern across interactions (e.g., consistently asks for concise answers)",
     ].join("\n"),
   },
   {
@@ -56,7 +59,7 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
 
 /** Discovery hint for new projects — self-erasing once the agent populates the file. */
 const PROJECT_DISCOVERY_HINT =
-  "(New project — explore the codebase and replace this: check package.json, README, build scripts, directory structure. If the directory is empty, leave as-is — memory fills in as the project takes shape.)"
+  "(New project — explore the project and replace this: check README, directory structure, config files, and key artifacts. If the directory is empty, leave as-is — memory fills in as the project takes shape.)"
 
 /** Starter files for project stores. */
 const PROJECT_SEED_FILES: SeedFile[] = [
@@ -64,7 +67,10 @@ const PROJECT_SEED_FILES: SeedFile[] = [
     path: "system/project.md",
     description: [
       "Key context, decisions, current state, conventions — scannable cheat sheet",
-      "Update when: you learn project context, decisions, or conventions — not limited to code",
+      "Update when: you learn what the project is about, its purpose, or current state",
+      "Update when: key decisions or conventions are established",
+      "Update when: you discover build commands, architecture, or important paths",
+      "Not limited to code — research topics, document structures, and workflows count",
     ].join("\n"),
     content: PROJECT_DISCOVERY_HINT,
   },
