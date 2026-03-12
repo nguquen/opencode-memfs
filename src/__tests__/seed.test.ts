@@ -95,12 +95,42 @@ describe("ensureSeed (project)", () => {
     expect(body).toContain("No active handoff")
   })
 
-  it("should skip seeding if .md files already exist", async () => {
+  it("should not overwrite existing seed files", async () => {
     await mkdir(path.join(tmpDir, "system"), { recursive: true })
-    await writeFile(path.join(tmpDir, "system/existing.md"), "existing content")
+    await writeFile(path.join(tmpDir, "system/project.md"), "custom content")
 
-    const seeded = await ensureSeed(tmpDir, TEST_CONFIG, "project")
-    expect(seeded).toBe(false)
+    await ensureSeed(tmpDir, TEST_CONFIG, "project")
+
+    // project.md should keep its custom content
+    const raw = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")
+    expect(raw).toBe("custom content")
+  })
+
+  it("should backfill missing seed files in existing stores", async () => {
+    // Simulate existing store with only project.md
+    await mkdir(path.join(tmpDir, "system"), { recursive: true })
+    await writeFile(path.join(tmpDir, "system/project.md"), "existing project")
+
+    const created = await ensureSeed(tmpDir, TEST_CONFIG, "project")
+    expect(created).toBe(true)
+
+    // handoff.md should have been backfilled
+    const handoff = await readFile(path.join(tmpDir, "system/handoff.md"), "utf-8")
+    expect(handoff).toBeTruthy()
+    expect(handoff).toContain("No active handoff")
+
+    // project.md should NOT have been overwritten
+    const project = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")
+    expect(project).toBe("existing project")
+  })
+
+  it("should return false when all seed files already exist", async () => {
+    // First run creates everything
+    await ensureSeed(tmpDir, TEST_CONFIG, "project")
+
+    // Second run should find nothing to create
+    const created = await ensureSeed(tmpDir, TEST_CONFIG, "project")
+    expect(created).toBe(false)
   })
 
   it("should use config.defaultLimit for seeded files", async () => {

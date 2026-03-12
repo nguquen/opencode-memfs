@@ -109,50 +109,33 @@ const PROJECT_SEED_DIRS = ["reference", "archive"]
  * - Global: persona.md, human.md, projects.md in system/ + empty reference/
  * - Project: project.md, handoff.md in system/ + empty reference/, archive/
  *
- * Only seeds if no .md files exist in the directory yet.
+ * On first run (no .md files), creates all seed files and directories.
+ * On subsequent runs, backfills any missing seed files without touching existing ones.
  *
  * @param memoryRoot - Absolute path to the store root directory.
  * @param config     - Plugin configuration (for hotDir, defaultLimit).
  * @param scope      - Which scope this store represents.
- * @returns `true` if seeding was performed, `false` if skipped.
+ * @returns `true` if any files were created, `false` if everything already existed.
  */
 export async function ensureSeed(
   memoryRoot: string,
   config: MemFSConfig,
   scope: MemoryScope = "project",
 ): Promise<boolean> {
-  // Check if the directory already has memory files
-  const existing = await scanDir(memoryRoot)
-  if (existing.length > 0) {
-    return false
-  }
-
   // Select seed definitions based on scope
   const seedFiles = scope === "global" ? GLOBAL_SEED_FILES : PROJECT_SEED_FILES
   const seedDirs = scope === "global" ? GLOBAL_SEED_DIRS : PROJECT_SEED_DIRS
 
-  // Create system/ directory and seed files
+  // Ensure system/ directory exists
   const systemDir = path.join(memoryRoot, config.hotDir)
   await mkdir(systemDir, { recursive: true })
 
-  for (const seed of seedFiles) {
-    const filePath = path.join(memoryRoot, seed.path)
-    const fm = defaultFrontmatter(seed.path, {
-      description: seed.description,
-      limit: config.defaultLimit,
-      readonly: seed.readonly,
-    })
-    const serialized = serializeFrontmatter(fm, seed.content ?? "")
-    await writeFile(filePath, serialized, "utf-8")
-  }
-
-  // Create empty directories with .gitkeep
+  // Ensure empty directories with .gitkeep
   for (const dir of seedDirs) {
     const dirPath = path.join(memoryRoot, dir)
     await mkdir(dirPath, { recursive: true })
 
     const gitkeepPath = path.join(dirPath, ".gitkeep")
-    // Only create .gitkeep if it doesn't exist
     try {
       await access(gitkeepPath)
     } catch {
@@ -160,5 +143,27 @@ export async function ensureSeed(
     }
   }
 
-  return true
+  // Create seed files — skip any that already exist
+  let created = false
+  for (const seed of seedFiles) {
+    const filePath = path.join(memoryRoot, seed.path)
+
+    try {
+      await access(filePath)
+      continue // File exists, don't overwrite
+    } catch {
+      // File doesn't exist, create it
+    }
+
+    const fm = defaultFrontmatter(seed.path, {
+      description: seed.description,
+      limit: config.defaultLimit,
+      readonly: seed.readonly,
+    })
+    const serialized = serializeFrontmatter(fm, seed.content ?? "")
+    await writeFile(filePath, serialized, "utf-8")
+    created = true
+  }
+
+  return created
 }
