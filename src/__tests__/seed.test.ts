@@ -61,7 +61,7 @@ describe("ensureSeed (project)", () => {
     const raw = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")
     const { frontmatter, body } = parseFrontmatter(raw, "system/project.md")
 
-    expect(frontmatter.description).toBe("Build/test commands, key paths, architecture, gotchas — scannable cheat sheet, not an essay")
+    expect(frontmatter.description).toBe("Key context, decisions, current state, conventions — scannable cheat sheet\nUpdate when: you learn project context, decisions, or conventions — not limited to code")
     expect(frontmatter.limit).toBe(5000)
     expect(frontmatter.readonly).toBe(false)
     expect(body).toContain("New project")
@@ -124,15 +124,23 @@ describe("ensureSeed (global)", () => {
     expect(frontmatter.readonly).toBe(true)
   })
 
-  it("should set persona.md and human.md as non-readonly", async () => {
+  it("should set persona.md and human.md as non-readonly with multi-line descriptions", async () => {
     await ensureSeed(tmpDir, TEST_CONFIG, "global")
 
     const personaRaw = await readFile(path.join(tmpDir, "system/persona.md"), "utf-8")
     const { frontmatter: personaFm } = parseFrontmatter(personaRaw, "system/persona.md")
     expect(personaFm.readonly).toBe(false)
+    expect(personaFm.description).toBe(
+      "Agent identity, behavior guidelines, communication style\n" +
+      "Update when: user customizes how you should act or you learn what works for them"
+    )
 
     const humanRaw = await readFile(path.join(tmpDir, "system/human.md"), "utf-8")
     const { frontmatter: humanFm } = parseFrontmatter(humanRaw, "system/human.md")
     expect(humanFm.readonly).toBe(false)
+    expect(humanFm.description).toBe(
+      "User preferences, habits, constraints, working style\n" +
+      "Update when: user states a preference, corrects you, or you observe a recurring pattern"
+    )
   })
 })

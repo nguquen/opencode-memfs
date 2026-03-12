@@ -46,9 +46,13 @@ export function renderTree(entries: MemoryTreeEntry[]): string {
     const group = byScope.get(scope)
     if (!group || group.length === 0) continue
 
-    const lines = group.map(
-      (e) => `${e.path} (${e.chars}/${e.limit}) — ${e.description}`
-    )
+    const lines = group.map((e) => {
+      const descLines = e.description.split("\n")
+      const first = `${e.path} (${e.chars}/${e.limit}) — ${descLines[0]}`
+      if (descLines.length === 1) return first
+      const rest = descLines.slice(1).map((l) => `  ${l}`)
+      return [first, ...rest].join("\n")
+    })
     blocks.push(`<tree scope="${scope}">\n${lines.join("\n")}\n</tree>`)
   }
 
@@ -89,7 +93,6 @@ Before responding to the user:
 
 After providing your response, proactively update the relevant system/ files (see tree for each file's purpose).
 For longer-form context — decision rationale, investigation results, solution write-ups — create reference/ files with descriptive names (e.g., reference/auth-migration.md, not reference/notes.md).
-Use archive/ for files no longer actively relevant.
 
 Guidelines:
 - Check existing content before writing — update in place, don't append duplicates

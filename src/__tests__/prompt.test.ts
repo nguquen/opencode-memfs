@@ -44,6 +44,37 @@ describe("renderTree", () => {
     expect(result).toContain('<tree scope="project">')
   })
 
+  it("should render multi-line descriptions with indented continuation", () => {
+    const entries: MemoryTreeEntry[] = [
+      {
+        path: "system/human.md",
+        description: "User preferences, habits, constraints\nUpdate when: user states a preference or corrects you",
+        chars: 200,
+        limit: 5000,
+        scope: "global",
+      },
+    ]
+    const result = renderTree(entries)
+    expect(result).toContain("system/human.md (200/5000) — User preferences, habits, constraints")
+    expect(result).toContain("\n  Update when: user states a preference or corrects you")
+  })
+
+  it("should render single-line descriptions without extra indentation", () => {
+    const entries: MemoryTreeEntry[] = [
+      {
+        path: "system/projects.md",
+        description: "Registry of all known projects",
+        chars: 100,
+        limit: 5000,
+        scope: "global",
+      },
+    ]
+    const result = renderTree(entries)
+    expect(result).toContain("system/projects.md (100/5000) — Registry of all known projects")
+    // No indented continuation line
+    expect(result).not.toContain("\n  ")
+  })
+
   it("should render separate tree blocks for different scopes", () => {
     const entries: MemoryTreeEntry[] = [
       { path: "system/persona.md", description: "Persona", chars: 100, limit: 5000, scope: "project" },
