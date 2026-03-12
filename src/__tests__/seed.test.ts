@@ -92,7 +92,7 @@ describe("ensureSeed (project)", () => {
     )
     expect(frontmatter.limit).toBe(5000)
     expect(frontmatter.readonly).toBe(false)
-    expect(body).toContain("No active handoff")
+    expect(body).toBe("")
   })
 
   it("should not overwrite existing seed files", async () => {
@@ -117,7 +117,6 @@ describe("ensureSeed (project)", () => {
     // handoff.md should have been backfilled
     const handoff = await readFile(path.join(tmpDir, "system/handoff.md"), "utf-8")
     expect(handoff).toBeTruthy()
-    expect(handoff).toContain("No active handoff")
 
     // project.md should NOT have been overwritten
     const project = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")

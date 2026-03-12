@@ -62,10 +62,6 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
 const PROJECT_DISCOVERY_HINT =
   "(New project — explore the project and replace this: check README, directory structure, config files, and key artifacts. If the directory is empty, leave as-is — memory fills in as the project takes shape.)"
 
-/** Placeholder for handoff.md when no work is in progress. */
-const HANDOFF_EMPTY_HINT =
-  "(No active handoff — update this when working on multi-step tasks that may span sessions.)"
-
 /** Starter files for project stores. */
 const PROJECT_SEED_FILES: SeedFile[] = [
   {
@@ -88,7 +84,6 @@ const PROJECT_SEED_FILES: SeedFile[] = [
       "Update when: key decisions or discoveries are made mid-session",
       "Update when: session work is complete — clear or summarize the outcome",
     ].join("\n"),
-    content: HANDOFF_EMPTY_HINT,
   },
 ]
 
