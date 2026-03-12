@@ -138,7 +138,7 @@ describe("ensureSeed (global)", () => {
     expect(personaFm.readonly).toBe(false)
     expect(personaFm.description).toBe(
       "Agent identity, behavior guidelines, communication style\n" +
-      "Update when: user tells you how to behave (\"be more concise\", \"ask before doing X\")\n" +
+      `Update when: user tells you how to behave ("be more concise", "ask before doing X")\n` +
       "Update when: you learn what tone, verbosity, or proactivity level works for this user"
     )
 
@@ -147,7 +147,7 @@ describe("ensureSeed (global)", () => {
     expect(humanFm.readonly).toBe(false)
     expect(humanFm.description).toBe(
       "User preferences, habits, constraints, working style\n" +
-      "Update when: user states a preference or constraint (\"I prefer...\", \"don't...\", \"always...\")\n" +
+      `Update when: user states a preference or constraint ("I prefer...", "don't...", "always...")\n` +
       "Update when: user corrects you — record what they wanted instead\n" +
       "Update when: you observe a pattern across interactions (e.g., consistently asks for concise answers)"
     )

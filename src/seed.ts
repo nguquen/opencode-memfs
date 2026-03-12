@@ -37,7 +37,7 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
     path: "system/persona.md",
     description: [
       "Agent identity, behavior guidelines, communication style",
-      "Update when: user tells you how to behave (\"be more concise\", \"ask before doing X\")",
+      `Update when: user tells you how to behave ("be more concise", "ask before doing X")`,
       "Update when: you learn what tone, verbosity, or proactivity level works for this user",
     ].join("\n"),
   },
@@ -45,7 +45,7 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
     path: "system/human.md",
     description: [
       "User preferences, habits, constraints, working style",
-      "Update when: user states a preference or constraint (\"I prefer...\", \"don't...\", \"always...\")",
+      `Update when: user states a preference or constraint ("I prefer...", "don't...", "always...")`,
       "Update when: user corrects you — record what they wanted instead",
       "Update when: you observe a pattern across interactions (e.g., consistently asks for concise answers)",
     ].join("\n"),
