@@ -84,11 +84,11 @@ describe("ensureSeed (project)", () => {
     const { frontmatter, body } = parseFrontmatter(raw, "system/handoff.md")
 
     expect(frontmatter.description).toBe(
-      "Session continuity — goal, progress, next steps, and key decisions for resuming work\n" +
-      "Update when: starting a multi-step task — record the goal, plan, and relevant files\n" +
-      "Update when: making significant progress — update accomplishments and remaining steps\n" +
-      "Update when: key decisions or discoveries are made mid-session\n" +
-      "Update when: session work is complete — clear or summarize the outcome"
+      "Session continuity — record what you're working on so the next session can pick up where you left off\n" +
+      "Update when: beginning work that involves multiple steps — capture the goal, plan, and relevant files\n" +
+      "Update when: completing a step or making progress — update what's done and what remains\n" +
+      "Update when: key decisions or discoveries are made — preserve context that would be lost between sessions\n" +
+      "Update when: work is finished — clear or summarize the outcome"
     )
     expect(frontmatter.limit).toBe(5000)
     expect(frontmatter.readonly).toBe(false)
