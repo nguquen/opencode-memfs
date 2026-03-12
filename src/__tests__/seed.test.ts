@@ -3,7 +3,7 @@
  *
  * Seeds are split by scope:
  * - Global: persona.md, human.md, projects.md + reference/
- * - Project: project.md + reference/, archive/
+ * - Project: project.md, handoff.md + reference/, archive/
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
@@ -29,12 +29,15 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe("ensureSeed (project)", () => {
-  it("should create system/ with only project.md", async () => {
+  it("should create system/ with project.md and handoff.md", async () => {
     const seeded = await ensureSeed(tmpDir, TEST_CONFIG, "project")
     expect(seeded).toBe(true)
 
     const project = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")
     expect(project).toBeTruthy()
+
+    const handoff = await readFile(path.join(tmpDir, "system/handoff.md"), "utf-8")
+    expect(handoff).toBeTruthy()
 
     // persona.md and human.md should NOT exist in project scope
     await expect(access(path.join(tmpDir, "system/persona.md"))).rejects.toThrow()
@@ -74,6 +77,24 @@ describe("ensureSeed (project)", () => {
     expect(body).toContain("explore the project")
   })
 
+  it("should set correct frontmatter on handoff.md", async () => {
+    await ensureSeed(tmpDir, TEST_CONFIG, "project")
+
+    const raw = await readFile(path.join(tmpDir, "system/handoff.md"), "utf-8")
+    const { frontmatter, body } = parseFrontmatter(raw, "system/handoff.md")
+
+    expect(frontmatter.description).toBe(
+      "Session continuity — goal, progress, next steps, and key decisions for resuming work\n" +
+      "Update when: starting a multi-step task — record the goal, plan, and relevant files\n" +
+      "Update when: making significant progress — update accomplishments and remaining steps\n" +
+      "Update when: key decisions or discoveries are made mid-session\n" +
+      "Update when: session work is complete — clear or summarize the outcome"
+    )
+    expect(frontmatter.limit).toBe(5000)
+    expect(frontmatter.readonly).toBe(false)
+    expect(body).toContain("No active handoff")
+  })
+
   it("should skip seeding if .md files already exist", async () => {
     await mkdir(path.join(tmpDir, "system"), { recursive: true })
     await writeFile(path.join(tmpDir, "system/existing.md"), "existing content")
@@ -109,8 +130,9 @@ describe("ensureSeed (global)", () => {
     expect(human).toBeTruthy()
     expect(projects).toBeTruthy()
 
-    // project.md should NOT exist in global scope
+    // project.md and handoff.md should NOT exist in global scope
     await expect(access(path.join(tmpDir, "system/project.md"))).rejects.toThrow()
+    await expect(access(path.join(tmpDir, "system/handoff.md"))).rejects.toThrow()
   })
 
   it("should create reference/ but not archive/", async () => {

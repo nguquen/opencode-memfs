@@ -3,7 +3,7 @@
  *
  * Seeds are split by scope:
  * - Global: persona.md, human.md, projects.md + reference/
- * - Project: project.md + reference/, archive/
+ * - Project: project.md, handoff.md + reference/, archive/
  *
  * Only seeds if the memory directory is empty (no .md files).
  */
@@ -62,6 +62,10 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
 const PROJECT_DISCOVERY_HINT =
   "(New project — explore the project and replace this: check README, directory structure, config files, and key artifacts. If the directory is empty, leave as-is — memory fills in as the project takes shape.)"
 
+/** Placeholder for handoff.md when no work is in progress. */
+const HANDOFF_EMPTY_HINT =
+  "(No active handoff — update this when working on multi-step tasks that may span sessions.)"
+
 /** Starter files for project stores. */
 const PROJECT_SEED_FILES: SeedFile[] = [
   {
@@ -74,6 +78,17 @@ const PROJECT_SEED_FILES: SeedFile[] = [
       "Not limited to code — research topics, document structures, and workflows count",
     ].join("\n"),
     content: PROJECT_DISCOVERY_HINT,
+  },
+  {
+    path: "system/handoff.md",
+    description: [
+      "Session continuity — goal, progress, next steps, and key decisions for resuming work",
+      "Update when: starting a multi-step task — record the goal, plan, and relevant files",
+      "Update when: making significant progress — update accomplishments and remaining steps",
+      "Update when: key decisions or discoveries are made mid-session",
+      "Update when: session work is complete — clear or summarize the outcome",
+    ].join("\n"),
+    content: HANDOFF_EMPTY_HINT,
   },
 ]
 
@@ -92,7 +107,7 @@ const PROJECT_SEED_DIRS = ["reference", "archive"]
  *
  * Seeds are split by scope:
  * - Global: persona.md, human.md, projects.md in system/ + empty reference/
- * - Project: project.md in system/ + empty reference/, archive/
+ * - Project: project.md, handoff.md in system/ + empty reference/, archive/
  *
  * Only seeds if no .md files exist in the directory yet.
  *
