@@ -25,7 +25,7 @@ Optionally, pin to a specific version:
 
 ```json
 {
-  "plugin": ["opencode-memfs@0.0.3"]
+  "plugin": ["opencode-memfs@0.0.4"]
 }
 ```
 
@@ -95,6 +95,7 @@ Read a memory file with metadata.
 | Arg | Type | Description |
 |---|---|---|
 | `path` | string | Relative path (e.g. `"system/persona.md"`) |
+| `scope` | `"project"` \| `"global"` | Memory scope to target |
 
 Returns path, description, char count, limit, readonly status, and full content.
 
@@ -105,6 +106,7 @@ Create or fully replace a memory file.
 | Arg | Type | Required | Description |
 |---|---|---|---|
 | `path` | string | yes | Relative path |
+| `scope` | `"project"` \| `"global"` | yes | Memory scope to target |
 | `content` | string | yes | Full content body |
 | `description` | string | no | File description (auto-generated from filename if omitted) |
 | `limit` | number | no | Character limit (defaults to `defaultLimit`) |
@@ -119,6 +121,7 @@ Partial edit using exact string replacement.
 | Arg | Type | Description |
 |---|---|---|
 | `path` | string | Relative path |
+| `scope` | `"project"` \| `"global"` | Memory scope to target |
 | `oldString` | string | Exact string to find |
 | `newString` | string | Replacement string |
 
@@ -131,6 +134,7 @@ Remove a memory file.
 | Arg | Type | Description |
 |---|---|---|
 | `path` | string | Relative path |
+| `scope` | `"project"` \| `"global"` | Memory scope to target |
 
 Validates that the file exists and is not readonly.
 
@@ -143,6 +147,7 @@ Move a cold file into `system/` (make it hot). The file will be pinned in the sy
 | Arg | Type | Description |
 |---|---|---|
 | `path` | string | Relative path to the cold file |
+| `scope` | `"project"` \| `"global"` | Memory scope to target |
 
 #### `memory_demote`
 
@@ -151,6 +156,7 @@ Move a hot file from `system/` into `reference/` (make it cold). The file will o
 | Arg | Type | Description |
 |---|---|---|
 | `path` | string | Relative path to the hot file |
+| `scope` | `"project"` \| `"global"` | Memory scope to target |
 
 ### Git / Navigation Tools
 
@@ -206,9 +212,13 @@ The plugin injects a `<memfs>` block into the system prompt containing:
 
 ```xml
 <memfs>
-<tree>
-system/persona.md (342/5000) — Agent identity and behavior guidelines
+<tree scope="global">
 system/human.md (128/5000) — User preferences and working style
+system/persona.md (342/5000) — Agent identity and behavior guidelines
+</tree>
+
+<tree scope="project">
+system/project.md (450/5000) — Build commands, architecture, conventions
 reference/api-conventions.md (890/5000) — API naming and error handling patterns
 </tree>
 
@@ -218,7 +228,11 @@ Files in system/ are pinned — you always see their full contents below.
 ...
 </instructions>
 
-<system path="system/persona.md" chars="342" limit="5000">
+<system path="system/human.md" chars="128" limit="5000" scope="global">
+...full content...
+</system>
+
+<system path="system/project.md" chars="450" limit="5000" scope="project">
 ...full content...
 </system>
 </memfs>
