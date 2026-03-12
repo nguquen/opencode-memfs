@@ -81,6 +81,9 @@ IMPORTANT: You MUST proactively maintain your memory. Do NOT wait to be asked.
 Before responding to the user:
 1. Check if your memory contains relevant context — use memory_read for cold files if needed
 2. Consider whether past sessions inform your approach
+3. If system/project.md contains a discovery hint (new project), explore the codebase first:
+   check package.json, README, build scripts, directory structure — then replace the hint.
+   If the directory is empty, skip discovery — memory fills in as the project takes shape.
 
 After providing your response, proactively update the relevant system/ files (see tree for each file's purpose).
 For longer-form context — decision rationale, investigation results, solution write-ups — create reference/ files with descriptive names (e.g., reference/auth-migration.md, not reference/notes.md).
