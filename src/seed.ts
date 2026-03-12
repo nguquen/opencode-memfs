@@ -37,6 +37,7 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
     path: "system/persona.md",
     description: [
       "Agent identity, behavior guidelines, communication style",
+      `Update when: user names you or customizes your identity ("call yourself...", "you are...")`,
       `Update when: user tells you how to behave ("be more concise", "ask before doing X")`,
       "Update when: you learn what tone, verbosity, or proactivity level works for this user",
     ].join("\n"),

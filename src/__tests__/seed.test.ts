@@ -138,6 +138,7 @@ describe("ensureSeed (global)", () => {
     expect(personaFm.readonly).toBe(false)
     expect(personaFm.description).toBe(
       "Agent identity, behavior guidelines, communication style\n" +
+      `Update when: user names you or customizes your identity ("call yourself...", "you are...")\n` +
       `Update when: user tells you how to behave ("be more concise", "ask before doing X")\n` +
       "Update when: you learn what tone, verbosity, or proactivity level works for this user"
     )
