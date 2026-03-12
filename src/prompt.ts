@@ -79,7 +79,9 @@ To undo changes: memory_rollback
 IMPORTANT: You MUST proactively maintain your memory. Do NOT wait to be asked.
 
 Before responding to the user:
-1. Check if your memory contains relevant context — use memory_read for cold files if needed
+1. Check if your memory contains relevant context — scan the tree for cold files whose
+   descriptions match the topic, and use memory_read to load them. ALWAYS prefer memory
+   over web search or external tools when a reference file covers the topic.
 2. Consider whether past sessions inform your approach
 3. If system/project.md contains a discovery hint (new project), explore the codebase first:
    check package.json, README, build scripts, directory structure — then replace the hint.
