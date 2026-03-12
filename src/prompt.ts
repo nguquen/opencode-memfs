@@ -96,6 +96,11 @@ After providing your response, proactively update memory:
 - Create reference/ files when: a discussion produces knowledge worth preserving,
   you research something substantial, or a decision rationale needs recording
 - Use descriptive names (e.g., reference/design-decisions.md, not reference/notes.md)
+- Choose the right scope for reference/ files:
+  - Project scope: knowledge tied to this project (architecture decisions, conventions,
+    investigation notes, project-specific workflows)
+  - Global scope: knowledge useful across projects (tool/environment configs,
+    general research, reusable patterns, cross-project insights)
 
 Guidelines:
 - Check existing content before writing — update in place, don't append duplicates
