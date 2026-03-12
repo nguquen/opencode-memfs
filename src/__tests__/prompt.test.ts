@@ -22,24 +22,40 @@ describe("renderTree", () => {
     expect(result).toBe("<tree>\n(no memory files yet)\n</tree>")
   })
 
-  it("should render single entry", () => {
+  it("should render single entry with scope", () => {
     const entries: MemoryTreeEntry[] = [
       { path: "system/persona.md", description: "Persona", chars: 100, limit: 5000, scope: "project" },
     ]
     const result = renderTree(entries)
     expect(result).toContain("system/persona.md (100/5000) — Persona")
-    expect(result.startsWith("<tree>")).toBe(true)
+    expect(result).toContain('<tree scope="project">')
     expect(result.endsWith("</tree>")).toBe(true)
   })
 
-  it("should render multiple entries", () => {
+  it("should render multiple entries in same scope", () => {
     const entries: MemoryTreeEntry[] = [
       { path: "system/persona.md", description: "Persona", chars: 100, limit: 5000, scope: "project" },
       { path: "reference/api.md", description: "API patterns", chars: 890, limit: 5000, scope: "project" },
     ]
     const result = renderTree(entries)
     const lines = result.split("\n")
-    expect(lines.length).toBe(4) // <tree> + 2 entries + </tree>
+    // <tree scope="project"> + 2 entries + </tree>
+    expect(lines.length).toBe(4)
+    expect(result).toContain('<tree scope="project">')
+  })
+
+  it("should render separate tree blocks for different scopes", () => {
+    const entries: MemoryTreeEntry[] = [
+      { path: "system/persona.md", description: "Persona", chars: 100, limit: 5000, scope: "project" },
+      { path: "system/human.md", description: "Human prefs", chars: 200, limit: 5000, scope: "global" },
+    ]
+    const result = renderTree(entries)
+    expect(result).toContain('<tree scope="global">')
+    expect(result).toContain('<tree scope="project">')
+    // Global block comes first
+    const globalIdx = result.indexOf('<tree scope="global">')
+    const projectIdx = result.indexOf('<tree scope="project">')
+    expect(globalIdx).toBeLessThan(projectIdx)
   })
 })
 
@@ -71,6 +87,13 @@ describe("renderInstructions", () => {
     expect(result).toContain("system/")
     expect(result).toContain("pinned")
   })
+
+  it("should explain scopes", () => {
+    const result = renderInstructions()
+    expect(result).toContain("project")
+    expect(result).toContain("global")
+    expect(result).toContain("scope")
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -93,7 +116,7 @@ describe("renderHotFiles", () => {
       },
     ]
     const result = renderHotFiles(files)
-    expect(result).toContain('<system path="system/persona.md" chars="16" limit="5000">')
+    expect(result).toContain('<system path="system/persona.md" chars="16" limit="5000" scope="project">')
     expect(result).toContain("You are helpful.")
     expect(result).toContain("</system>")
   })
@@ -159,7 +182,7 @@ describe("renderMemFS", () => {
       },
     ]
     const result = renderMemFS(entries, hotFiles)
-    expect(result).toContain("<tree>")
+    expect(result).toContain('<tree scope="project">')
     expect(result).toContain("<instructions>")
     expect(result).toContain("<system ")
     expect(result).toContain("You are helpful.")
@@ -170,7 +193,7 @@ describe("renderMemFS", () => {
       { path: "reference/notes.md", description: "Notes", chars: 50, limit: 5000, scope: "project" },
     ]
     const result = renderMemFS(entries, [])
-    expect(result).toContain("<tree>")
+    expect(result).toContain('<tree scope="project">')
     expect(result).toContain("<instructions>")
     expect(result).not.toContain("<system ")
   })

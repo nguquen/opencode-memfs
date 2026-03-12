@@ -23,6 +23,7 @@ import {
   createTmpDir,
   cleanupTmpDir,
   createTestState,
+  createDualStoreState,
   writeTestFile,
   FIXTURE_FULL,
   FIXTURE_READONLY,
@@ -60,7 +61,7 @@ describe("memory_read", () => {
   it("should read a file with metadata header", async () => {
     await writeTestFile(tmpDir, "system/persona.md", FIXTURE_FULL)
     const tool = createMemoryRead(state)
-    const result = await tool.execute({ path: "system/persona.md" }, stubContext)
+    const result = await tool.execute({ path: "system/persona.md", scope: "project" }, stubContext)
 
     expect(result).toContain("path: system/persona.md")
     expect(result).toContain("description: Agent identity and behavior guidelines")
@@ -71,7 +72,7 @@ describe("memory_read", () => {
   it("should error on missing file", async () => {
     const tool = createMemoryRead(state)
     await expect(
-      tool.execute({ path: "nonexistent.md" }, stubContext),
+      tool.execute({ path: "nonexistent.md", scope: "project" }, stubContext),
     ).rejects.toThrow()
   })
 })
@@ -84,7 +85,7 @@ describe("memory_write", () => {
   it("should create a new file", async () => {
     const tool = createMemoryWrite(state)
     const result = await tool.execute(
-      { path: "system/test.md", content: "Hello world" },
+      { path: "system/test.md", scope: "project", content: "Hello world" },
       stubContext,
     )
     expect(result).toContain("Wrote system/test.md")
@@ -97,7 +98,7 @@ describe("memory_write", () => {
   it("should auto-generate description from filename", async () => {
     const tool = createMemoryWrite(state)
     await tool.execute(
-      { path: "reference/debugging-patterns.md", content: "patterns" },
+      { path: "reference/debugging-patterns.md", scope: "project", content: "patterns" },
       stubContext,
     )
     const raw = await readFile(path.join(tmpDir, "reference/debugging-patterns.md"), "utf-8")
@@ -107,7 +108,7 @@ describe("memory_write", () => {
   it("should use explicit description when provided", async () => {
     const tool = createMemoryWrite(state)
     await tool.execute(
-      { path: "system/test.md", content: "hello", description: "Custom desc" },
+      { path: "system/test.md", scope: "project", content: "hello", description: "Custom desc" },
       stubContext,
     )
     const raw = await readFile(path.join(tmpDir, "system/test.md"), "utf-8")
@@ -117,7 +118,7 @@ describe("memory_write", () => {
   it("should reject content exceeding limit", async () => {
     const tool = createMemoryWrite(state)
     const result = await tool.execute(
-      { path: "system/test.md", content: "a".repeat(6000), limit: 5000 },
+      { path: "system/test.md", scope: "project", content: "a".repeat(6000), limit: 5000 },
       stubContext,
     )
     expect(result).toContain("Error")
@@ -128,7 +129,7 @@ describe("memory_write", () => {
     await writeTestFile(tmpDir, "system/rules.md", FIXTURE_READONLY)
     const tool = createMemoryWrite(state)
     const result = await tool.execute(
-      { path: "system/rules.md", content: "new content" },
+      { path: "system/rules.md", scope: "project", content: "new content" },
       stubContext,
     )
     expect(result).toContain("Error")
@@ -139,7 +140,7 @@ describe("memory_write", () => {
     await writeTestFile(tmpDir, "system/test.md", FIXTURE_FULL)
     const tool = createMemoryWrite(state)
     const result = await tool.execute(
-      { path: "system/test.md", content: "replaced content" },
+      { path: "system/test.md", scope: "project", content: "replaced content" },
       stubContext,
     )
     expect(result).toContain("Wrote system/test.md")
@@ -151,13 +152,13 @@ describe("memory_write", () => {
   it("should indicate hot vs cold tier", async () => {
     const tool = createMemoryWrite(state)
     const hotResult = await tool.execute(
-      { path: "system/hot.md", content: "hot" },
+      { path: "system/hot.md", scope: "project", content: "hot" },
       stubContext,
     )
     expect(hotResult).toContain("hot (system)")
 
     const coldResult = await tool.execute(
-      { path: "reference/cold.md", content: "cold" },
+      { path: "reference/cold.md", scope: "project", content: "cold" },
       stubContext,
     )
     expect(coldResult).toContain("cold")
@@ -175,6 +176,7 @@ describe("memory_edit", () => {
     const result = await tool.execute(
       {
         path: "system/persona.md",
+        scope: "project",
         oldString: "helpful coding assistant",
         newString: "precise engineering assistant",
       },
@@ -191,7 +193,7 @@ describe("memory_edit", () => {
     await writeTestFile(tmpDir, "system/rules.md", FIXTURE_READONLY)
     const tool = createMemoryEdit(state)
     const result = await tool.execute(
-      { path: "system/rules.md", oldString: "modify", newString: "change" },
+      { path: "system/rules.md", scope: "project", oldString: "modify", newString: "change" },
       stubContext,
     )
     expect(result).toContain("Error")
@@ -202,7 +204,7 @@ describe("memory_edit", () => {
     await writeTestFile(tmpDir, "system/persona.md", FIXTURE_FULL)
     const tool = createMemoryEdit(state)
     const result = await tool.execute(
-      { path: "system/persona.md", oldString: "nonexistent text", newString: "new" },
+      { path: "system/persona.md", scope: "project", oldString: "nonexistent text", newString: "new" },
       stubContext,
     )
     expect(result).toContain("Error")
@@ -214,13 +216,13 @@ describe("memory_edit", () => {
     const tool = createMemoryWrite(state)
     const content = "a".repeat(4980) + "MARKER_END"
     await tool.execute(
-      { path: "system/test.md", content, limit: 5000 },
+      { path: "system/test.md", scope: "project", content, limit: 5000 },
       stubContext,
     )
 
     const editTool = createMemoryEdit(state)
     const result = await editTool.execute(
-      { path: "system/test.md", oldString: "MARKER_END", newString: "b".repeat(100) },
+      { path: "system/test.md", scope: "project", oldString: "MARKER_END", newString: "b".repeat(100) },
       stubContext,
     )
     expect(result).toContain("Error")
@@ -230,13 +232,13 @@ describe("memory_edit", () => {
   it("should reject edit when oldString has multiple matches", async () => {
     const tool = createMemoryWrite(state)
     await tool.execute(
-      { path: "system/test.md", content: "foo bar foo baz" },
+      { path: "system/test.md", scope: "project", content: "foo bar foo baz" },
       stubContext,
     )
 
     const editTool = createMemoryEdit(state)
     const result = await editTool.execute(
-      { path: "system/test.md", oldString: "foo", newString: "qux" },
+      { path: "system/test.md", scope: "project", oldString: "foo", newString: "qux" },
       stubContext,
     )
     expect(result).toContain("Error")
@@ -253,7 +255,7 @@ describe("memory_delete", () => {
     await writeTestFile(tmpDir, "system/test.md", FIXTURE_FULL)
     const tool = createMemoryDelete(state)
     const result = await tool.execute(
-      { path: "system/test.md" },
+      { path: "system/test.md", scope: "project" },
       stubContext,
     )
     expect(result).toContain("Deleted system/test.md")
@@ -267,7 +269,7 @@ describe("memory_delete", () => {
     await writeTestFile(tmpDir, "system/rules.md", FIXTURE_READONLY)
     const tool = createMemoryDelete(state)
     const result = await tool.execute(
-      { path: "system/rules.md" },
+      { path: "system/rules.md", scope: "project" },
       stubContext,
     )
     expect(result).toContain("Error")
@@ -277,7 +279,7 @@ describe("memory_delete", () => {
   it("should error on missing file", async () => {
     const tool = createMemoryDelete(state)
     await expect(
-      tool.execute({ path: "nonexistent.md" }, stubContext),
+      tool.execute({ path: "nonexistent.md", scope: "project" }, stubContext),
     ).rejects.toThrow()
   })
 })
@@ -291,7 +293,7 @@ describe("memory_promote", () => {
     await writeTestFile(tmpDir, "reference/notes.md", FIXTURE_FULL)
     const tool = createMemoryPromote(state)
     const result = await tool.execute(
-      { path: "reference/notes.md" },
+      { path: "reference/notes.md", scope: "project" },
       stubContext,
     )
     expect(result).toContain("Promoted")
@@ -305,7 +307,7 @@ describe("memory_promote", () => {
     await writeTestFile(tmpDir, "system/persona.md", FIXTURE_FULL)
     const tool = createMemoryPromote(state)
     const result = await tool.execute(
-      { path: "system/persona.md" },
+      { path: "system/persona.md", scope: "project" },
       stubContext,
     )
     expect(result).toContain("Error")
@@ -322,7 +324,7 @@ describe("memory_demote", () => {
     await writeTestFile(tmpDir, "system/extra.md", FIXTURE_FULL)
     const tool = createMemoryDemote(state)
     const result = await tool.execute(
-      { path: "system/extra.md" },
+      { path: "system/extra.md", scope: "project" },
       stubContext,
     )
     expect(result).toContain("Demoted")
@@ -336,7 +338,7 @@ describe("memory_demote", () => {
     await writeTestFile(tmpDir, "reference/notes.md", FIXTURE_FULL)
     const tool = createMemoryDemote(state)
     const result = await tool.execute(
-      { path: "reference/notes.md" },
+      { path: "reference/notes.md", scope: "project" },
       stubContext,
     )
     expect(result).toContain("Error")
@@ -424,5 +426,163 @@ describe("memory_rollback", () => {
     )
     expect(result).toContain("Error")
     expect(result).toContain("not found")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Scope Disambiguation (dual-store)
+// ---------------------------------------------------------------------------
+
+describe("scope disambiguation", () => {
+  let dualTmpDir: string
+  let dualState: MemFSState
+  let projectRoot: string
+  let globalRoot: string
+
+  beforeEach(async () => {
+    dualTmpDir = await createTmpDir("memfs-dual-")
+    const dual = await createDualStoreState(dualTmpDir)
+    dualState = dual.state
+    projectRoot = dual.projectRoot
+    globalRoot = dual.globalRoot
+  })
+
+  afterEach(async () => {
+    await cleanupTmpDir(dualTmpDir)
+  })
+
+  it("should write to project scope only", async () => {
+    const tool = createMemoryWrite(dualState)
+    const result = await tool.execute(
+      { path: "system/test.md", scope: "project", content: "project content" },
+      stubContext,
+    )
+    expect(result).toContain("project scope")
+
+    const raw = await readFile(path.join(projectRoot, "system/test.md"), "utf-8")
+    expect(raw).toContain("project content")
+
+    // Should NOT exist in global store
+    await expect(
+      readFile(path.join(globalRoot, "system/test.md")),
+    ).rejects.toThrow()
+  })
+
+  it("should write to global scope only", async () => {
+    const tool = createMemoryWrite(dualState)
+    const result = await tool.execute(
+      { path: "system/test.md", scope: "global", content: "global content" },
+      stubContext,
+    )
+    expect(result).toContain("global scope")
+
+    const raw = await readFile(path.join(globalRoot, "system/test.md"), "utf-8")
+    expect(raw).toContain("global content")
+
+    // Should NOT exist in project store
+    await expect(
+      readFile(path.join(projectRoot, "system/test.md")),
+    ).rejects.toThrow()
+  })
+
+  it("should read from correct scope when same path exists in both", async () => {
+    // Write different content to the same path in both scopes
+    await writeTestFile(projectRoot, "system/shared.md", "---\ndescription: \"Project version\"\nlimit: 5000\nreadonly: false\n---\nproject data")
+    await writeTestFile(globalRoot, "system/shared.md", "---\ndescription: \"Global version\"\nlimit: 5000\nreadonly: false\n---\nglobal data")
+
+    const tool = createMemoryRead(dualState)
+
+    const projectResult = await tool.execute(
+      { path: "system/shared.md", scope: "project" },
+      stubContext,
+    )
+    expect(projectResult).toContain("project data")
+    expect(projectResult).not.toContain("global data")
+
+    const globalResult = await tool.execute(
+      { path: "system/shared.md", scope: "global" },
+      stubContext,
+    )
+    expect(globalResult).toContain("global data")
+    expect(globalResult).not.toContain("project data")
+  })
+
+  it("should edit in correct scope when same path exists in both", async () => {
+    await writeTestFile(projectRoot, "system/shared.md", "---\ndescription: \"Shared\"\nlimit: 5000\nreadonly: false\n---\nhello world")
+    await writeTestFile(globalRoot, "system/shared.md", "---\ndescription: \"Shared\"\nlimit: 5000\nreadonly: false\n---\nhello world")
+
+    const tool = createMemoryEdit(dualState)
+    await tool.execute(
+      { path: "system/shared.md", scope: "project", oldString: "hello world", newString: "project edited" },
+      stubContext,
+    )
+
+    // Project file changed
+    const projectRaw = await readFile(path.join(projectRoot, "system/shared.md"), "utf-8")
+    expect(projectRaw).toContain("project edited")
+
+    // Global file untouched
+    const globalRaw = await readFile(path.join(globalRoot, "system/shared.md"), "utf-8")
+    expect(globalRaw).toContain("hello world")
+  })
+
+  it("should delete from correct scope only", async () => {
+    await writeTestFile(projectRoot, "system/deleteme.md", FIXTURE_FULL)
+    await writeTestFile(globalRoot, "system/deleteme.md", FIXTURE_FULL)
+
+    const tool = createMemoryDelete(dualState)
+    await tool.execute(
+      { path: "system/deleteme.md", scope: "project" },
+      stubContext,
+    )
+
+    // Project file deleted
+    await expect(
+      readFile(path.join(projectRoot, "system/deleteme.md")),
+    ).rejects.toThrow()
+
+    // Global file still exists
+    const globalRaw = await readFile(path.join(globalRoot, "system/deleteme.md"), "utf-8")
+    expect(globalRaw).toContain("helpful coding assistant")
+  })
+
+  it("should promote within correct scope only", async () => {
+    await writeTestFile(projectRoot, "reference/notes.md", FIXTURE_FULL)
+
+    const tool = createMemoryPromote(dualState)
+    const result = await tool.execute(
+      { path: "reference/notes.md", scope: "project" },
+      stubContext,
+    )
+    expect(result).toContain("Promoted")
+
+    // File moved within project store
+    const raw = await readFile(path.join(projectRoot, "system/notes.md"), "utf-8")
+    expect(raw).toContain("helpful coding assistant")
+
+    // Nothing in global store
+    await expect(
+      readFile(path.join(globalRoot, "system/notes.md")),
+    ).rejects.toThrow()
+  })
+
+  it("should demote within correct scope only", async () => {
+    await writeTestFile(globalRoot, "system/extra.md", FIXTURE_FULL)
+
+    const tool = createMemoryDemote(dualState)
+    const result = await tool.execute(
+      { path: "system/extra.md", scope: "global" },
+      stubContext,
+    )
+    expect(result).toContain("Demoted")
+
+    // File moved within global store
+    const raw = await readFile(path.join(globalRoot, "reference/extra.md"), "utf-8")
+    expect(raw).toContain("helpful coding assistant")
+
+    // Nothing in project store
+    await expect(
+      readFile(path.join(projectRoot, "reference/extra.md")),
+    ).rejects.toThrow()
   })
 })

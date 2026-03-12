@@ -27,6 +27,8 @@ interface SeedFile {
   description: string
   /** Whether the file should be readonly. */
   readonly?: boolean
+  /** Optional body content for first-run hints. */
+  content?: string
 }
 
 /** Starter files for the global store. */
@@ -48,12 +50,17 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
   },
 ]
 
+/** Discovery hint for new projects — self-erasing once the agent populates the file. */
+const PROJECT_DISCOVERY_HINT =
+  "(New project — explore the codebase and replace this: check package.json, README, build scripts, directory structure. If the directory is empty, leave as-is — memory fills in as the project takes shape.)"
+
 /** Starter files for project stores. */
 const PROJECT_SEED_FILES: SeedFile[] = [
   {
     path: "system/project.md",
     description:
       "Build/test commands, key paths, architecture, gotchas — scannable cheat sheet, not an essay",
+    content: PROJECT_DISCOVERY_HINT,
   },
 ]
 
@@ -107,8 +114,8 @@ export async function ensureSeed(
       limit: config.defaultLimit,
       readonly: seed.readonly,
     })
-    const content = serializeFrontmatter(fm, "")
-    await writeFile(filePath, content, "utf-8")
+    const serialized = serializeFrontmatter(fm, seed.content ?? "")
+    await writeFile(filePath, serialized, "utf-8")
   }
 
   // Create empty directories with .gitkeep

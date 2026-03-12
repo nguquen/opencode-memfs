@@ -64,7 +64,8 @@ describe("ensureSeed (project)", () => {
     expect(frontmatter.description).toBe("Build/test commands, key paths, architecture, gotchas — scannable cheat sheet, not an essay")
     expect(frontmatter.limit).toBe(5000)
     expect(frontmatter.readonly).toBe(false)
-    expect(body).toBe("")
+    expect(body).toContain("New project")
+    expect(body).toContain("explore the codebase")
   })
 
   it("should skip seeding if .md files already exist", async () => {
