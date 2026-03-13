@@ -135,10 +135,10 @@ export async function writeRegistry(
 }
 
 /**
- * Check whether a project name looks like a real human-readable name.
+ * Check whether a project directory basename looks like a real project name.
  *
  * Rejects names that appear to be internal/encoded IDs, such as:
- * - Base64-encoded paths (long alphanumeric strings with no separators)
+ * - Base64-encoded paths (strings that decode to an absolute path starting with `/`)
  * - Names longer than 64 characters (unlikely for real project dirs)
  */
 export function isValidProjectName(name: string): boolean {
@@ -148,9 +148,16 @@ export function isValidProjectName(name: string): boolean {
   // Reject names that are too long to be real project directories
   if (name.length > 64) return false
 
-  // Reject names that look like base64-encoded strings:
-  // 20+ chars of only [A-Za-z0-9+/=] with no hyphens, dots, or underscores
-  if (name.length >= 20 && /^[A-Za-z0-9+/=]+$/.test(name)) return false
+  // Reject names that are base64-encoded absolute paths.
+  // Only test strings that consist entirely of base64 characters.
+  if (/^[A-Za-z0-9+/=]+$/.test(name)) {
+    try {
+      const decoded = Buffer.from(name, "base64").toString("utf-8")
+      if (decoded.startsWith("/")) return false
+    } catch {
+      // Not valid base64, that's fine
+    }
+  }
 
   return true
 }

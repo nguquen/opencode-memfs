@@ -133,7 +133,7 @@ describe("serializeProjectsTable", () => {
 
   it("should round-trip through parse", () => {
     const original = [
-      { name: "my-project", path: "/home/dev/my-project", lastSeen: "2026-03-10" },
+      { name: "my-project", path: "/home/user/my-project", lastSeen: "2026-03-10" },
     ]
 
     const serialized = serializeProjectsTable(original)
@@ -375,15 +375,20 @@ describe("isValidProjectName", () => {
     expect(isValidProjectName("a".repeat(65))).toBe(false)
   })
 
-  it("should reject base64-encoded strings", () => {
-    expect(isValidProjectName("L3dvcmtzcGFjZXMvbWVtZW50bw")).toBe(false)
-    expect(isValidProjectName("L3dvcmtzcGFjZXMvb3BlbmFzcw")).toBe(false)
-    expect(isValidProjectName("L3dvcmtzcGFjZXMvcHJvamVjdHMvb3BlbmNvZGU")).toBe(false)
+  it("should reject base64-encoded paths", () => {
+    // /tmp (short base64)
+    expect(isValidProjectName("L3RtcA")).toBe(false)
+    // /home/user (previously slipped through length heuristic)
+    expect(isValidProjectName("L2hvbWUvdXNlcg")).toBe(false)
+    // /home/user/projects
+    expect(isValidProjectName("L2hvbWUvdXNlci9wcm9qZWN0cw")).toBe(false)
+    // /home/user/projects/my-app
+    expect(isValidProjectName("L2hvbWUvdXNlci9wcm9qZWN0cy9teS1hcHA")).toBe(false)
   })
 
   it("should accept short alphanumeric names", () => {
     // Short names shouldn't be falsely flagged as base64
-    expect(isValidProjectName("memento")).toBe(true)
+    expect(isValidProjectName("webapp")).toBe(true)
     expect(isValidProjectName("jobs")).toBe(true)
     expect(isValidProjectName("x123")).toBe(true)
   })
