@@ -3,7 +3,7 @@
  *
  * Seeds are split by scope:
  * - Global: persona.md, human.md, projects.md + reference/
- * - Project: project.md, handoff.md + reference/, archive/
+ * - Project: persona.md, human.md, project.md, handoff.md + reference/, archive/
  *
  * Only seeds if the memory directory is empty (no .md files).
  */
@@ -65,6 +65,22 @@ const PROJECT_DISCOVERY_HINT =
 /** Starter files for project stores. */
 const PROJECT_SEED_FILES: SeedFile[] = [
   {
+    path: "system/persona.md",
+    description: [
+      "Project-specific agent role and behavior — supplements the global persona",
+      `Update when: user assigns a project-specific role ("in this project, act as...")`,
+      "Update when: project-specific communication style or constraints are established",
+    ].join("\n"),
+  },
+  {
+    path: "system/human.md",
+    description: [
+      "Project-specific user preferences — supplements the global human profile",
+      `Update when: user states a preference that applies only to this project`,
+      "Update when: project-specific workflows or conventions are requested",
+    ].join("\n"),
+  },
+  {
     path: "system/project.md",
     description: [
       "Key context, decisions, current state, conventions — scannable cheat sheet",
@@ -102,7 +118,7 @@ const PROJECT_SEED_DIRS = ["reference", "archive"]
  *
  * Seeds are split by scope:
  * - Global: persona.md, human.md, projects.md in system/ + empty reference/
- * - Project: project.md, handoff.md in system/ + empty reference/, archive/
+ * - Project: persona.md, human.md, project.md, handoff.md in system/ + empty reference/, archive/
  *
  * On first run (no .md files), creates all seed files and directories.
  * On subsequent runs, backfills any missing seed files without touching existing ones.

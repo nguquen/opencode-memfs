@@ -71,6 +71,8 @@ Other files are listed in the tree with descriptions only.
 
 Memory has two scopes: project (local to this project) and global (shared across all projects).
 All memory tools require a scope parameter — check the tree to see which scope a file is in.
+When a file exists in both scopes (e.g., persona.md, human.md), project-scoped content
+supplements the global — use project scope for project-specific adjustments, not duplicates.
 
 To read a cold file: memory_read
 To update memory: memory_write (full replace) or memory_edit (partial)

@@ -3,7 +3,7 @@
  *
  * Seeds are split by scope:
  * - Global: persona.md, human.md, projects.md + reference/
- * - Project: project.md, handoff.md + reference/, archive/
+ * - Project: persona.md, human.md, project.md, handoff.md + reference/, archive/
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
@@ -29,9 +29,15 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe("ensureSeed (project)", () => {
-  it("should create system/ with project.md and handoff.md", async () => {
+  it("should create system/ with persona.md, human.md, project.md, and handoff.md", async () => {
     const seeded = await ensureSeed(tmpDir, TEST_CONFIG, "project")
     expect(seeded).toBe(true)
+
+    const persona = await readFile(path.join(tmpDir, "system/persona.md"), "utf-8")
+    expect(persona).toBeTruthy()
+
+    const human = await readFile(path.join(tmpDir, "system/human.md"), "utf-8")
+    expect(human).toBeTruthy()
 
     const project = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")
     expect(project).toBeTruthy()
@@ -39,9 +45,8 @@ describe("ensureSeed (project)", () => {
     const handoff = await readFile(path.join(tmpDir, "system/handoff.md"), "utf-8")
     expect(handoff).toBeTruthy()
 
-    // persona.md and human.md should NOT exist in project scope
-    await expect(access(path.join(tmpDir, "system/persona.md"))).rejects.toThrow()
-    await expect(access(path.join(tmpDir, "system/human.md"))).rejects.toThrow()
+    // projects.md should NOT exist in project scope (global only)
+    await expect(access(path.join(tmpDir, "system/projects.md"))).rejects.toThrow()
   })
 
   it("should create reference/ and archive/ directories", async () => {
@@ -56,6 +61,20 @@ describe("ensureSeed (project)", () => {
 
     await expect(access(path.join(tmpDir, "reference/.gitkeep"))).resolves.toBeUndefined()
     await expect(access(path.join(tmpDir, "archive/.gitkeep"))).resolves.toBeUndefined()
+  })
+
+  it("should set project-scoped persona.md and human.md as supplement-aware", async () => {
+    await ensureSeed(tmpDir, TEST_CONFIG, "project")
+
+    const personaRaw = await readFile(path.join(tmpDir, "system/persona.md"), "utf-8")
+    const { frontmatter: personaFm } = parseFrontmatter(personaRaw, "system/persona.md")
+    expect(personaFm.readonly).toBe(false)
+    expect(personaFm.description).toContain("supplements the global persona")
+
+    const humanRaw = await readFile(path.join(tmpDir, "system/human.md"), "utf-8")
+    const { frontmatter: humanFm } = parseFrontmatter(humanRaw, "system/human.md")
+    expect(humanFm.readonly).toBe(false)
+    expect(humanFm.description).toContain("supplements the global human profile")
   })
 
   it("should set correct frontmatter on project.md", async () => {
@@ -159,7 +178,7 @@ describe("ensureSeed (global)", () => {
     expect(human).toBeTruthy()
     expect(projects).toBeTruthy()
 
-    // project.md and handoff.md should NOT exist in global scope
+    // project.md and handoff.md should NOT exist in global scope (project only)
     await expect(access(path.join(tmpDir, "system/project.md"))).rejects.toThrow()
     await expect(access(path.join(tmpDir, "system/handoff.md"))).rejects.toThrow()
   })
