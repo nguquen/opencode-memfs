@@ -149,6 +149,56 @@ describe("memory_write", () => {
     expect(raw).toContain("replaced content")
   })
 
+  it("should preserve description when canOverrideDescription is false", async () => {
+    // Create a file with canOverrideDescription: false (simulating a seed file)
+    const protectedContent = `---\ncanOverrideDescription: false\ndescription: "Protected seed description with triggers"\nlimit: 5000\nreadonly: false\n---\n\nOriginal content\n`
+    await writeTestFile(tmpDir, "system/protected.md", protectedContent)
+
+    const tool = createMemoryWrite(state)
+    const result = await tool.execute(
+      {
+        path: "system/protected.md",
+        scope: "project",
+        content: "Updated content",
+        description: "Agent wants to replace this description",
+      },
+      stubContext,
+    )
+    expect(result).toContain("Wrote system/protected.md")
+
+    const raw = await readFile(path.join(tmpDir, "system/protected.md"), "utf-8")
+    // Original description should be preserved
+    expect(raw).toContain("Protected seed description with triggers")
+    // Agent's description should NOT appear
+    expect(raw).not.toContain("Agent wants to replace this description")
+    // Content should be updated
+    expect(raw).toContain("Updated content")
+    // canOverrideDescription should remain false
+    expect(raw).toContain("canOverrideDescription: false")
+  })
+
+  it("should allow description override when canOverrideDescription is true", async () => {
+    // Create a file with canOverrideDescription: true (default behavior)
+    const normalContent = `---\ncanOverrideDescription: true\ndescription: "Original description"\nlimit: 5000\nreadonly: false\n---\n\nOriginal content\n`
+    await writeTestFile(tmpDir, "system/normal.md", normalContent)
+
+    const tool = createMemoryWrite(state)
+    await tool.execute(
+      {
+        path: "system/normal.md",
+        scope: "project",
+        content: "Updated content",
+        description: "New description from agent",
+      },
+      stubContext,
+    )
+
+    const raw = await readFile(path.join(tmpDir, "system/normal.md"), "utf-8")
+    // New description should be applied
+    expect(raw).toContain("New description from agent")
+    expect(raw).not.toContain("Original description")
+  })
+
   it("should indicate hot vs cold tier", async () => {
     const tool = createMemoryWrite(state)
     const hotResult = await tool.execute(

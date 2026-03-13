@@ -149,9 +149,16 @@ export function createMemoryWrite(state: MemFSState): ToolDefinition {
           // File doesn't exist — creating new file, no readonly check needed
         }
 
+        // Determine description: if existing file has canOverrideDescription=false,
+        // always preserve the existing description regardless of what the agent provides.
+        const description = (existingFm && existingFm.canOverrideDescription === false)
+          ? existingFm.description
+          : (args.description ?? existingFm?.description)
+
         // Build frontmatter: args override existing, existing overrides auto-generated
         const fm = defaultFrontmatter(relativePath, {
-          description: args.description ?? existingFm?.description,
+          canOverrideDescription: existingFm?.canOverrideDescription,
+          description,
           limit: args.limit ?? existingFm?.limit,
           readonly: args.readonly ?? existingFm?.readonly,
         }, state.config.defaultLimit)

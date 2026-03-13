@@ -140,7 +140,7 @@ describe("renderHotFiles", () => {
     const files: MemoryFile[] = [
       {
         path: "system/persona.md",
-        frontmatter: { description: "Persona", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "Persona", limit: 5000, readonly: false },
         content: "You are helpful.",
         chars: 16,
         scope: "project",
@@ -156,7 +156,7 @@ describe("renderHotFiles", () => {
     const files: MemoryFile[] = [
       {
         path: "system/project.md",
-        frontmatter: { description: "Project", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "Project", limit: 5000, readonly: false },
         content: "",
         chars: 0,
         scope: "project",
@@ -170,14 +170,14 @@ describe("renderHotFiles", () => {
     const files: MemoryFile[] = [
       {
         path: "system/a.md",
-        frontmatter: { description: "A", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "A", limit: 5000, readonly: false },
         content: "aaa",
         chars: 3,
         scope: "project",
       },
       {
         path: "system/b.md",
-        frontmatter: { description: "B", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "B", limit: 5000, readonly: false },
         content: "bbb",
         chars: 3,
         scope: "project",
@@ -206,7 +206,7 @@ describe("renderMemFS", () => {
     const hotFiles: MemoryFile[] = [
       {
         path: "system/persona.md",
-        frontmatter: { description: "Persona", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "Persona", limit: 5000, readonly: false },
         content: "You are helpful.",
         chars: 16,
         scope: "project",

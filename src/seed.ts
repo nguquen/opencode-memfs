@@ -27,6 +27,8 @@ interface SeedFile {
   description: string
   /** Whether the file should be readonly. */
   readonly?: boolean
+  /** Whether the agent can override the description via memory_write. */
+  canOverrideDescription?: boolean
   /** Optional body content for first-run hints. */
   content?: string
 }
@@ -41,6 +43,7 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
       `Update when: user tells you how to behave ("be more concise", "ask before doing X")`,
       "Update when: you learn what tone, verbosity, or proactivity level works for this user",
     ].join("\n"),
+    canOverrideDescription: false,
   },
   {
     path: "system/human.md",
@@ -50,11 +53,13 @@ const GLOBAL_SEED_FILES: SeedFile[] = [
       "Update when: user corrects you — record what they wanted instead",
       "Update when: you observe a pattern across interactions (e.g., consistently asks for concise answers)",
     ].join("\n"),
+    canOverrideDescription: false,
   },
   {
     path: "system/projects.md",
     description: "Registry of all known projects with their paths",
     readonly: true,
+    canOverrideDescription: false,
   },
 ]
 
@@ -71,6 +76,7 @@ const PROJECT_SEED_FILES: SeedFile[] = [
       `Update when: user assigns a project-specific role ("in this project, act as...")`,
       "Update when: project-specific communication style or constraints are established",
     ].join("\n"),
+    canOverrideDescription: false,
   },
   {
     path: "system/human.md",
@@ -79,6 +85,7 @@ const PROJECT_SEED_FILES: SeedFile[] = [
       `Update when: user states a preference that applies only to this project`,
       "Update when: project-specific workflows or conventions are requested",
     ].join("\n"),
+    canOverrideDescription: false,
   },
   {
     path: "system/project.md",
@@ -89,6 +96,7 @@ const PROJECT_SEED_FILES: SeedFile[] = [
       "Update when: you discover build commands, architecture, or important paths",
       "Not limited to code — research topics, document structures, and workflows count",
     ].join("\n"),
+    canOverrideDescription: false,
     content: PROJECT_DISCOVERY_HINT,
   },
   {
@@ -100,6 +108,7 @@ const PROJECT_SEED_FILES: SeedFile[] = [
       "Update when: key decisions or discoveries are made — preserve context that would be lost between sessions",
       "Update when: work is finished — clear or summarize the outcome",
     ].join("\n"),
+    canOverrideDescription: false,
   },
 ]
 
@@ -167,6 +176,7 @@ export async function ensureSeed(
     }
 
     const fm = defaultFrontmatter(seed.path, {
+      canOverrideDescription: seed.canOverrideDescription,
       description: seed.description,
       limit: config.defaultLimit,
       readonly: seed.readonly,

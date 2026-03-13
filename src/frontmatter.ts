@@ -64,6 +64,7 @@ export function defaultFrontmatter(
   defaultLimit: number = DEFAULT_LIMIT,
 ): MemoryFrontmatter {
   return {
+    canOverrideDescription: partial.canOverrideDescription ?? true,
     description: partial.description ?? humanizeFilename(filePath),
     limit: partial.limit ?? defaultLimit,
     readonly: partial.readonly ?? false,
@@ -130,6 +131,9 @@ export function parseFrontmatter(
   }
   if (typeof parsed.readonly === "boolean") {
     partial.readonly = parsed.readonly
+  }
+  if (typeof parsed.canOverrideDescription === "boolean") {
+    partial.canOverrideDescription = parsed.canOverrideDescription
   }
 
   const body = raw.slice(match[0].length).trim()

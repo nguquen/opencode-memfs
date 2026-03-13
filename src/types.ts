@@ -21,6 +21,8 @@ export type MemoryScopeFilter = MemoryScope | "all"
 
 /** YAML frontmatter fields stored at the top of each memory file. */
 export interface MemoryFrontmatter {
+  /** When false, the description cannot be changed by the agent. */
+  canOverrideDescription: boolean
   /** Human-readable description — visible in tree listing for cold files. */
   description: string
   /** Maximum character count for the file body. */

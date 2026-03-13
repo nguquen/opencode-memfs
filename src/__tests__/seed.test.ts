@@ -77,6 +77,23 @@ describe("ensureSeed (project)", () => {
     expect(humanFm.description).toContain("supplements the global human profile")
   })
 
+  it("should set canOverrideDescription to false on all project seed files", async () => {
+    await ensureSeed(tmpDir, TEST_CONFIG, "project")
+
+    const seedPaths = [
+      "system/persona.md",
+      "system/human.md",
+      "system/project.md",
+      "system/handoff.md",
+    ]
+
+    for (const seedPath of seedPaths) {
+      const raw = await readFile(path.join(tmpDir, seedPath), "utf-8")
+      const { frontmatter } = parseFrontmatter(raw, seedPath)
+      expect(frontmatter.canOverrideDescription).toBe(false)
+    }
+  })
+
   it("should set correct frontmatter on project.md", async () => {
     await ensureSeed(tmpDir, TEST_CONFIG, "project")
 
@@ -222,5 +239,21 @@ describe("ensureSeed (global)", () => {
       "Update when: user corrects you — record what they wanted instead\n" +
       "Update when: you observe a pattern across interactions (e.g., consistently asks for concise answers)"
     )
+  })
+
+  it("should set canOverrideDescription to false on all global seed files", async () => {
+    await ensureSeed(tmpDir, TEST_CONFIG, "global")
+
+    const seedPaths = [
+      "system/persona.md",
+      "system/human.md",
+      "system/projects.md",
+    ]
+
+    for (const seedPath of seedPaths) {
+      const raw = await readFile(path.join(tmpDir, seedPath), "utf-8")
+      const { frontmatter } = parseFrontmatter(raw, seedPath)
+      expect(frontmatter.canOverrideDescription).toBe(false)
+    }
   })
 })

@@ -69,6 +69,7 @@ describe("humanizeFilename", () => {
 describe("defaultFrontmatter", () => {
   it("should generate all defaults from filename", () => {
     const fm = defaultFrontmatter("system/persona.md")
+    expect(fm.canOverrideDescription).toBe(true)
     expect(fm.description).toBe("Persona")
     expect(fm.limit).toBe(5000)
     expect(fm.readonly).toBe(false)
@@ -82,6 +83,13 @@ describe("defaultFrontmatter", () => {
     expect(fm.description).toBe("Custom description")
     expect(fm.limit).toBe(5000)
     expect(fm.readonly).toBe(true)
+  })
+
+  it("should respect canOverrideDescription override", () => {
+    const fm = defaultFrontmatter("system/persona.md", {
+      canOverrideDescription: false,
+    })
+    expect(fm.canOverrideDescription).toBe(false)
   })
 
   it("should use custom defaultLimit", () => {
@@ -181,6 +189,24 @@ describe("parseFrontmatter", () => {
     const { frontmatter } = parseFrontmatter(raw, "test.md")
     expect(frontmatter.readonly).toBe(false) // falls back to default
   })
+
+  it("should parse canOverrideDescription when present", () => {
+    const raw = '---\ncanOverrideDescription: false\ndescription: "Protected"\nlimit: 5000\nreadonly: false\n---\ncontent'
+    const { frontmatter } = parseFrontmatter(raw, "test.md")
+    expect(frontmatter.canOverrideDescription).toBe(false)
+  })
+
+  it("should default canOverrideDescription to true when absent", () => {
+    const raw = '---\ndescription: "Normal"\nlimit: 5000\nreadonly: false\n---\ncontent'
+    const { frontmatter } = parseFrontmatter(raw, "test.md")
+    expect(frontmatter.canOverrideDescription).toBe(true)
+  })
+
+  it("should ignore non-boolean canOverrideDescription", () => {
+    const raw = '---\ncanOverrideDescription: "nope"\ndescription: "OK"\nlimit: 5000\nreadonly: false\n---\ncontent'
+    const { frontmatter } = parseFrontmatter(raw, "test.md")
+    expect(frontmatter.canOverrideDescription).toBe(true) // falls back to default
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -190,19 +216,20 @@ describe("parseFrontmatter", () => {
 describe("serializeFrontmatter", () => {
   it("should produce sorted YAML keys", () => {
     const result = serializeFrontmatter(
-      { description: "Test", limit: 5000, readonly: false },
+      { canOverrideDescription: true, description: "Test", limit: 5000, readonly: false },
       "content",
     )
     const lines = result.split("\n")
-    // Keys should be alphabetically sorted: description, limit, readonly
-    expect(lines[1]).toMatch(/^description:/)
-    expect(lines[2]).toMatch(/^limit:/)
-    expect(lines[3]).toMatch(/^readonly:/)
+    // Keys should be alphabetically sorted: canOverrideDescription, description, limit, readonly
+    expect(lines[1]).toMatch(/^canOverrideDescription:/)
+    expect(lines[2]).toMatch(/^description:/)
+    expect(lines[3]).toMatch(/^limit:/)
+    expect(lines[4]).toMatch(/^readonly:/)
   })
 
   it("should wrap with --- delimiters", () => {
     const result = serializeFrontmatter(
-      { description: "Test", limit: 5000, readonly: false },
+      { canOverrideDescription: true, description: "Test", limit: 5000, readonly: false },
       "hello",
     )
     expect(result.startsWith("---\n")).toBe(true)
@@ -211,7 +238,7 @@ describe("serializeFrontmatter", () => {
 
   it("should include body after frontmatter", () => {
     const result = serializeFrontmatter(
-      { description: "Test", limit: 5000, readonly: false },
+      { canOverrideDescription: true, description: "Test", limit: 5000, readonly: false },
       "hello world",
     )
     expect(result).toContain("hello world")
@@ -220,7 +247,7 @@ describe("serializeFrontmatter", () => {
 
   it("should handle empty body", () => {
     const result = serializeFrontmatter(
-      { description: "Test", limit: 5000, readonly: false },
+      { canOverrideDescription: true, description: "Test", limit: 5000, readonly: false },
       "",
     )
     expect(result).toMatch(/^---\n[\s\S]+\n---\n$/)
@@ -230,7 +257,7 @@ describe("serializeFrontmatter", () => {
 
   it("should trim body whitespace", () => {
     const result = serializeFrontmatter(
-      { description: "Test", limit: 5000, readonly: false },
+      { canOverrideDescription: true, description: "Test", limit: 5000, readonly: false },
       "  content with spaces  ",
     )
     expect(result).toContain("content with spaces")
@@ -292,7 +319,7 @@ describe("writeMemoryFile + parseMemoryFile roundtrip", () => {
 
   it("should roundtrip write and read", async () => {
     const absPath = path.join(tmpDir, "system", "persona.md")
-    const fm = { description: "Test persona", limit: 5000, readonly: false }
+    const fm = { canOverrideDescription: true, description: "Test persona", limit: 5000, readonly: false }
     const body = "You are helpful."
 
     await writeMemoryFile(absPath, fm, body)
@@ -309,7 +336,7 @@ describe("writeMemoryFile + parseMemoryFile roundtrip", () => {
 
   it("should roundtrip with empty body", async () => {
     const absPath = path.join(tmpDir, "empty.md")
-    const fm = { description: "Empty", limit: 3000, readonly: true }
+    const fm = { canOverrideDescription: true, description: "Empty", limit: 3000, readonly: true }
 
     await writeMemoryFile(absPath, fm, "")
     const file = await parseMemoryFile(absPath, "empty.md", "global")

@@ -183,14 +183,14 @@ describe("buildTree", () => {
     const files: MemoryFile[] = [
       {
         path: "system/persona.md",
-        frontmatter: { description: "Persona", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "Persona", limit: 5000, readonly: false },
         content: "content",
         chars: 7,
         scope: "project",
       },
       {
         path: "reference/api.md",
-        frontmatter: { description: "API patterns", limit: 3000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "API patterns", limit: 3000, readonly: false },
         content: "api stuff",
         chars: 9,
         scope: "project",
@@ -208,7 +208,7 @@ describe("buildTree", () => {
     const files: MemoryFile[] = [
       {
         path: "system/test.md",
-        frontmatter: { description: "Test file", limit: 8000, readonly: true },
+        frontmatter: { canOverrideDescription: true, description: "Test file", limit: 8000, readonly: true },
         content: "hello",
         chars: 5,
         scope: "global",
@@ -264,14 +264,14 @@ describe("partitionFiles", () => {
     const files: MemoryFile[] = [
       {
         path: "system/persona.md",
-        frontmatter: { description: "P", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "P", limit: 5000, readonly: false },
         content: "hot",
         chars: 3,
         scope: "project",
       },
       {
         path: "reference/notes.md",
-        frontmatter: { description: "N", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "N", limit: 5000, readonly: false },
         content: "cold",
         chars: 4,
         scope: "project",
@@ -289,7 +289,7 @@ describe("partitionFiles", () => {
     const files: MemoryFile[] = [
       {
         path: "system/a.md",
-        frontmatter: { description: "A", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "A", limit: 5000, readonly: false },
         content: "",
         chars: 0,
         scope: "project",
@@ -304,7 +304,7 @@ describe("partitionFiles", () => {
     const files: MemoryFile[] = [
       {
         path: "reference/a.md",
-        frontmatter: { description: "A", limit: 5000, readonly: false },
+        frontmatter: { canOverrideDescription: true, description: "A", limit: 5000, readonly: false },
         content: "",
         chars: 0,
         scope: "project",
