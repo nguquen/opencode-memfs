@@ -2,8 +2,8 @@
  * System prompt rendering for opencode-memfs.
  *
  * Renders the <memfs> XML block injected into the system prompt:
- * - <tree> with descriptions and char counts for all files
  * - <instructions> with tool usage guidance
+ * - <tree> with descriptions and char counts for all files
  * - <system> blocks with full content for hot (system/) files
  *
  * Hook: experimental.chat.system.transform — inserts at position 1.
@@ -153,7 +153,7 @@ export function renderHotFiles(hotFiles: MemoryFile[]): string {
 /**
  * Compose the full `<memfs>` block for system prompt injection.
  *
- * Combines tree listing, instructions, and hot file contents.
+ * Combines instructions, tree listing, and hot file contents.
  *
  * @param treeEntries - All tree entries (hot + cold).
  * @param hotFiles    - Parsed hot memory files with content.
@@ -164,9 +164,9 @@ export function renderMemFS(
   hotFiles: MemoryFile[],
 ): string {
   const parts = [
-    renderTree(treeEntries),
-    "",
     renderInstructions(),
+    "",
+    renderTree(treeEntries),
   ]
 
   const hotContent = renderHotFiles(hotFiles)
