@@ -231,7 +231,9 @@ export function createMemoryEdit(state: MemFSState): ToolDefinition {
           return `Error: Found ${matchCount} matches for oldString in ${relativePath}. Provide more surrounding context to identify the correct match.`
         }
 
-        const newContent = file.content.replace(args.oldString, args.newString)
+        // Use a replacer function to avoid $-pattern interpretation in newString
+        // (e.g. $` inserts text before match, $' inserts text after match)
+        const newContent = file.content.replace(args.oldString, () => args.newString)
 
         // Validate new content length
         if (newContent.length > file.frontmatter.limit) {

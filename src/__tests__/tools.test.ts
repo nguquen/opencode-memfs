@@ -292,6 +292,26 @@ describe("memory_edit", () => {
     expect(result).toContain("2 matches")
   })
 
+  it("should not interpret dollar-sign patterns in newString", async () => {
+    await writeTestFile(tmpDir, "system/test.md", FIXTURE_FULL)
+    const tool = createMemoryEdit(state)
+    const result = await tool.execute(
+      {
+        path: "system/test.md",
+        scope: "project",
+        oldString: "helpful coding assistant",
+        newString: "price is $0.50 and `$HOME` is safe",
+      },
+      stubContext,
+    )
+    expect(result).toContain("Edited system/test.md")
+
+    const raw = await readFile(path.join(tmpDir, "system/test.md"), "utf-8")
+    // $0 and $` should be literal, not replaced with regex backreferences
+    expect(raw).toContain("price is $0.50 and `$HOME` is safe")
+    expect(raw).not.toContain("helpful coding assistant")
+  })
+
   it("should reject editing a cold file without prior read", async () => {
     await writeTestFile(tmpDir, "reference/notes.md", FIXTURE_FULL)
     const tool = createMemoryEdit(state)
