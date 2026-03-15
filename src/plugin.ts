@@ -303,6 +303,7 @@ export const MemFSPlugin: Plugin = async (input) => {
     config,
     withFileLock,
     withGitLock,
+    readFiles: new Map(),
   }
 
   // -----------------------------------------------------------------------

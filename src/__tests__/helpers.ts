@@ -133,6 +133,7 @@ export async function createTestState(
     config: { ...TEST_CONFIG, ...configOverrides },
     withFileLock: createFileLock(),
     withGitLock: createMutex(),
+    readFiles: new Map(),
   }
 }
 
@@ -168,6 +169,7 @@ export async function createDualStoreState(
     config: { ...TEST_CONFIG, ...configOverrides },
     withFileLock: createFileLock(),
     withGitLock: createMutex(),
+    readFiles: new Map(),
   }
 
   return { state, projectRoot, globalRoot }

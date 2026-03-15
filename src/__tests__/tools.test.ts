@@ -58,15 +58,12 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe("memory_read", () => {
-  it("should read a file with metadata header", async () => {
+  it("should return file content directly", async () => {
     await writeTestFile(tmpDir, "system/persona.md", FIXTURE_FULL)
     const tool = createMemoryRead(state)
     const result = await tool.execute({ path: "system/persona.md", scope: "project" }, stubContext)
 
-    expect(result).toContain("path: system/persona.md")
-    expect(result).toContain("description: Agent identity and behavior guidelines")
-    expect(result).toContain("readonly: false")
-    expect(result).toContain("You are a helpful coding assistant.")
+    expect(result).toBe("You are a helpful coding assistant.")
   })
 
   it("should error on missing file", async () => {
@@ -293,6 +290,83 @@ describe("memory_edit", () => {
     )
     expect(result).toContain("Error")
     expect(result).toContain("2 matches")
+  })
+
+  it("should reject editing a cold file without prior read", async () => {
+    await writeTestFile(tmpDir, "reference/notes.md", FIXTURE_FULL)
+    const tool = createMemoryEdit(state)
+    const result = await tool.execute(
+      { path: "reference/notes.md", scope: "project", oldString: "helpful", newString: "precise" },
+      stubContext,
+    )
+    expect(result).toContain("Error")
+    expect(result).toContain("must read")
+  })
+
+  it("should allow editing a cold file after memory_read", async () => {
+    await writeTestFile(tmpDir, "reference/notes.md", FIXTURE_FULL)
+
+    // Read the file first
+    const readTool = createMemoryRead(state)
+    await readTool.execute({ path: "reference/notes.md", scope: "project" }, stubContext)
+
+    // Now edit should work
+    const editTool = createMemoryEdit(state)
+    const result = await editTool.execute(
+      { path: "reference/notes.md", scope: "project", oldString: "helpful coding assistant", newString: "precise engineering assistant" },
+      stubContext,
+    )
+    expect(result).toContain("Edited reference/notes.md")
+  })
+
+  it("should allow editing a cold file after memory_write", async () => {
+    // Write creates the file and registers it
+    const writeTool = createMemoryWrite(state)
+    await writeTool.execute(
+      { path: "reference/new.md", scope: "project", content: "hello world" },
+      stubContext,
+    )
+
+    // Edit should work without a separate read
+    const editTool = createMemoryEdit(state)
+    const result = await editTool.execute(
+      { path: "reference/new.md", scope: "project", oldString: "hello", newString: "goodbye" },
+      stubContext,
+    )
+    expect(result).toContain("Edited reference/new.md")
+  })
+
+  it("should allow editing hot files without prior read", async () => {
+    await writeTestFile(tmpDir, "system/persona.md", FIXTURE_FULL)
+    // No memory_read call — hot files are visible in system prompt
+    const tool = createMemoryEdit(state)
+    const result = await tool.execute(
+      { path: "system/persona.md", scope: "project", oldString: "helpful coding assistant", newString: "precise assistant" },
+      stubContext,
+    )
+    expect(result).toContain("Edited system/persona.md")
+  })
+
+  it("should reject editing a cold file modified since last read", async () => {
+    await writeTestFile(tmpDir, "reference/notes.md", FIXTURE_FULL)
+
+    // Read the file
+    const readTool = createMemoryRead(state)
+    await readTool.execute({ path: "reference/notes.md", scope: "project" }, stubContext)
+
+    // Externally modify the file (simulates another session or watcher)
+    // Small delay to ensure mtime changes
+    await new Promise((r) => setTimeout(r, 50))
+    await writeTestFile(tmpDir, "reference/notes.md", FIXTURE_FULL.replace("helpful", "modified"))
+
+    // Edit should be rejected — content is stale
+    const editTool = createMemoryEdit(state)
+    const result = await editTool.execute(
+      { path: "reference/notes.md", scope: "project", oldString: "helpful", newString: "precise" },
+      stubContext,
+    )
+    expect(result).toContain("Error")
+    expect(result).toContain("modified since")
   })
 })
 

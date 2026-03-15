@@ -9,7 +9,7 @@
  * `ToolDefinition` compatible with the plugin SDK's `tool()` helper.
  */
 
-import { access, readFile, unlink, rename, mkdir } from "fs/promises"
+import { access, readFile, stat, unlink, rename, mkdir } from "fs/promises"
 import path from "path"
 
 import type { SimpleGit } from "simple-git"
@@ -45,6 +45,8 @@ export interface MemFSState {
   withFileLock: FileLockFn
   /** Git operation lock for serializing commits and rollbacks. */
   withGitLock: LockFn
+  /** Tracks files read via memory_read or written via memory_write (keys: "scope:path", values: mtime in ms). */
+  readFiles: Map<string, number>
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +90,7 @@ function resolvePath(
 /** Create the `memory_read` tool definition. */
 export function createMemoryRead(state: MemFSState): ToolDefinition {
   return tool({
-    description: "Read a memory file with metadata. Returns path, description, char count, limit, readonly status, and full content.",
+    description: "Read a memory file. Returns the file body content. Metadata (description, chars, limit) is visible in the tree.",
     args: {
       path: tool.schema.string().describe("Relative path to the memory file (e.g. 'system/persona.md')"),
       scope: tool.schema.enum(["project", "global"]).describe("Memory scope to target"),
@@ -103,15 +105,9 @@ export function createMemoryRead(state: MemFSState): ToolDefinition {
         state.config.defaultLimit,
       )
 
-      const header = [
-        `path: ${file.path}`,
-        `description: ${file.frontmatter.description}`,
-        `chars: ${file.chars} / ${file.frontmatter.limit}`,
-        `readonly: ${file.frontmatter.readonly}`,
-        `scope: ${file.scope}`,
-      ].join("\n")
-
-      return `${header}\n---\n${file.content}`
+      const fileStat = await stat(absPath)
+      state.readFiles.set(`${args.scope}:${relativePath}`, fileStat.mtimeMs)
+      return file.content
     },
   })
 }
@@ -171,6 +167,8 @@ export function createMemoryWrite(state: MemFSState): ToolDefinition {
         // Write the file atomically
         await writeMemoryFile(absPath, fm, args.content)
 
+        const writtenStat = await stat(absPath)
+        state.readFiles.set(`${args.scope}:${relativePath}`, writtenStat.mtimeMs)
         const tier = isHot(relativePath, state.config.hotDir) ? "hot (system)" : "cold"
         return `Wrote ${relativePath} (${args.content.length}/${fm.limit} chars, ${tier}, ${store.scope} scope)`
       })
@@ -194,6 +192,20 @@ export function createMemoryEdit(state: MemFSState): ToolDefinition {
     },
     async execute(args) {
       const { absPath, store, relativePath } = resolvePath(state, args.path, args.scope as MemoryScope)
+
+      // Require prior read for cold files — hot files are visible in the system prompt.
+      const fileKey = `${args.scope}:${relativePath}`
+      if (!isHot(relativePath, state.config.hotDir)) {
+        const readMtime = state.readFiles.get(fileKey)
+        if (readMtime === undefined) {
+          return `Error: You must read ${relativePath} (${args.scope} scope) with memory_read before editing it.`
+        }
+        // Check if file has been modified since last read
+        const currentStat = await stat(absPath)
+        if (currentStat.mtimeMs !== readMtime) {
+          return `Error: ${relativePath} has been modified since you last read it. Use memory_read to get the current content before editing.`
+        }
+      }
 
       return state.withFileLock(absPath, async () => {
         // Read and parse
