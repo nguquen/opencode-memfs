@@ -31,6 +31,12 @@ interface SeedFile {
   canOverrideDescription?: boolean
   /** Optional body content for first-run hints. */
   content?: string
+  /**
+   * Per-seed char-limit override. When omitted, `config.defaultLimit` is used.
+   * Use this for files whose natural size differs from the default (e.g.
+   * handoff.md, which accumulates plans and context during a session).
+   */
+  limit?: number
 }
 
 /** Starter files for the global store. */
@@ -109,6 +115,11 @@ const PROJECT_SEED_FILES: SeedFile[] = [
       "Update when: work is finished — clear or summarize the outcome",
     ].join("\n"),
     canOverrideDescription: false,
+    // Handoff accumulates during a session (goal + plan + files + decisions +
+    // blockers + context notes) — a realistic mid-project entry runs 3–7k chars.
+    // Larger than the default to avoid premature compaction of the exact context
+    // this file exists to preserve.
+    limit: 8000,
   },
 ]
 
@@ -178,7 +189,7 @@ export async function ensureSeed(
     const fm = defaultFrontmatter(seed.path, {
       canOverrideDescription: seed.canOverrideDescription,
       description: seed.description,
-      limit: config.defaultLimit,
+      limit: seed.limit ?? config.defaultLimit,
       readonly: seed.readonly,
     })
     const serialized = serializeFrontmatter(fm, seed.content ?? "")

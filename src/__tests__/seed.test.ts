@@ -126,7 +126,9 @@ describe("ensureSeed (project)", () => {
       "Update when: key decisions or discoveries are made — preserve context that would be lost between sessions\n" +
       "Update when: work is finished — clear or summarize the outcome"
     )
-    expect(frontmatter.limit).toBe(5000)
+    // Handoff ships with a per-seed 8000 override (larger than defaultLimit)
+    // because it accumulates plan + decisions + context during a session.
+    expect(frontmatter.limit).toBe(8000)
     expect(frontmatter.readonly).toBe(false)
     expect(body).toBe("")
   })
@@ -175,6 +177,29 @@ describe("ensureSeed (project)", () => {
     const raw = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")
     const { frontmatter } = parseFrontmatter(raw, "system/project.md")
     expect(frontmatter.limit).toBe(8000)
+  })
+
+  it("should give handoff.md a larger per-seed limit than the default", async () => {
+    await ensureSeed(tmpDir, TEST_CONFIG, "project")
+
+    const raw = await readFile(path.join(tmpDir, "system/handoff.md"), "utf-8")
+    const { frontmatter } = parseFrontmatter(raw, "system/handoff.md")
+    // handoff accumulates during a session — shipped with an explicit 8000
+    // override so real mid-project entries don't hit the limit.
+    expect(frontmatter.limit).toBe(8000)
+    expect(frontmatter.limit).toBeGreaterThan(TEST_CONFIG.defaultLimit)
+  })
+
+  it("should preserve handoff.md's override even when defaultLimit is raised", async () => {
+    // Per-seed override wins even when the config's defaultLimit is also large.
+    const customConfig = { ...TEST_CONFIG, defaultLimit: 3000 }
+    await ensureSeed(tmpDir, customConfig, "project")
+
+    const handoffRaw = await readFile(path.join(tmpDir, "system/handoff.md"), "utf-8")
+    const projectRaw = await readFile(path.join(tmpDir, "system/project.md"), "utf-8")
+
+    expect(parseFrontmatter(handoffRaw, "system/handoff.md").frontmatter.limit).toBe(8000)
+    expect(parseFrontmatter(projectRaw, "system/project.md").frontmatter.limit).toBe(3000)
   })
 })
 
