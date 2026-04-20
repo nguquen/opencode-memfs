@@ -349,22 +349,7 @@ export const MemFSPlugin: Plugin = async (input) => {
 
     // Update per-session meta from message.updated events (TASK-111).
     event: async ({ event }) => {
-      if (event.type !== "message.updated") return
-      const info = (event as { properties: { info: unknown } }).properties.info as {
-        role?: string
-        sessionID?: string
-        tokens?: {
-          input?: number
-          cache?: { read?: number }
-        }
-      }
-      if (!info || info.role !== "assistant" || !info.sessionID) return
-
-      const meta = sessionMeta.getOrCreate(info.sessionID)
-      meta.lastResponseTime = Date.now()
-      const input = info.tokens?.input ?? 0
-      const cacheRead = info.tokens?.cache?.read ?? 0
-      meta.lastTokens = { input, cacheRead }
+      handleMessageUpdatedEvent(state, event)
     },
 
     // Intercept /memfs-flush to force a cache refresh on the next transform.
@@ -391,6 +376,59 @@ export const MemFSPlugin: Plugin = async (input) => {
   }
 
   return hooks
+}
+
+// ---------------------------------------------------------------------------
+// Event-hook logic (exported for testing — TASK-111)
+// ---------------------------------------------------------------------------
+
+/** Minimal shape of the SDK `Event` we care about (avoids pulling the full type). */
+interface MessageUpdatedLike {
+  type?: string
+  properties?: {
+    info?: {
+      role?: string
+      sessionID?: string
+      finish?: string
+      tokens?: {
+        input?: number
+        cache?: { read?: number }
+      }
+    }
+  }
+}
+
+/**
+ * Handle a single OpenCode `message.updated` event.
+ *
+ * Ignores every event that isn't a **finished** assistant message. This is
+ * critical for TTL correctness: `message.updated` fires at message *creation*
+ * time too (with no `finish` set and no content), and that creation happens
+ * just before `system.transform` runs for the next turn. Bumping
+ * `lastResponseTime` on those partial updates would reset it to "now" at the
+ * start of every turn, making the TTL branch of the cache ladder never fire.
+ *
+ * Gate on `info.finish` being present — that field is only set by the SDK
+ * when the provider signals completion.
+ */
+export function handleMessageUpdatedEvent(
+  state: MemFSState,
+  event: unknown,
+): void {
+  const e = event as MessageUpdatedLike
+  if (!e || e.type !== "message.updated") return
+  const info = e.properties?.info
+  if (!info || info.role !== "assistant" || !info.sessionID) return
+  if (!info.finish) return // still streaming — ignore partial updates
+
+  const store = state.sessionMeta
+  if (!store) return
+
+  const meta = store.getOrCreate(info.sessionID)
+  meta.lastResponseTime = Date.now()
+  const input = info.tokens?.input ?? 0
+  const cacheRead = info.tokens?.cache?.read ?? 0
+  meta.lastTokens = { input, cacheRead }
 }
 
 // ---------------------------------------------------------------------------

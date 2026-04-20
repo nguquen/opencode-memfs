@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "path"
 
-import { runSystemTransform } from "../plugin"
+import { runSystemTransform, handleMessageUpdatedEvent } from "../plugin"
 import { RenderCache } from "../renderCache"
 import { SessionMetaStore } from "../sessionMeta"
 import { createMemoryWrite, createMemoryRead, createMemoryPromote, createMemoryFlush } from "../tools"
@@ -309,5 +309,74 @@ describe("injection cache — session isolation", () => {
 
     // Session "b"'s cached entry should be unaffected.
     expect(state.renderCache!.get("b")?.block).toBe(b1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Acceptance: event hook correctly gates lastResponseTime
+// ---------------------------------------------------------------------------
+
+describe("injection cache — event hook / lastResponseTime", () => {
+  it("ignores message.updated for user messages", async () => {
+    const meta = state.sessionMeta!.getOrCreate("sess-1")
+    meta.lastResponseTime = 1_000
+
+    handleMessageUpdatedEvent(state, {
+      type: "message.updated",
+      properties: {
+        info: { role: "user", sessionID: "sess-1", finish: "stop" },
+      },
+    })
+
+    expect(meta.lastResponseTime).toBe(1_000) // unchanged
+  })
+
+  it("ignores in-progress assistant messages (no finish field)", async () => {
+    // This is the production bug that caused TTL to never fire:
+    // `message.updated` fires at assistant-shell creation time, right before
+    // system.transform runs for the next turn. Without this guard,
+    // lastResponseTime was being reset to "now" on every turn start.
+    const meta = state.sessionMeta!.getOrCreate("sess-1")
+    meta.lastResponseTime = 1_000
+
+    handleMessageUpdatedEvent(state, {
+      type: "message.updated",
+      properties: {
+        info: { role: "assistant", sessionID: "sess-1" /* no finish */ },
+      },
+    })
+
+    expect(meta.lastResponseTime).toBe(1_000) // unchanged
+  })
+
+  it("updates lastResponseTime only on finished assistant messages", async () => {
+    const meta = state.sessionMeta!.getOrCreate("sess-1")
+    meta.lastResponseTime = 1_000
+
+    handleMessageUpdatedEvent(state, {
+      type: "message.updated",
+      properties: {
+        info: {
+          role: "assistant",
+          sessionID: "sess-1",
+          finish: "stop",
+          tokens: { input: 5000, cache: { read: 2000 } },
+        },
+      },
+    })
+
+    expect(meta.lastResponseTime).toBeGreaterThan(1_000)
+    expect(meta.lastTokens).toEqual({ input: 5000, cacheRead: 2000 })
+  })
+
+  it("ignores events of other types", async () => {
+    const meta = state.sessionMeta!.getOrCreate("sess-1")
+    meta.lastResponseTime = 1_000
+
+    handleMessageUpdatedEvent(state, { type: "session.idle" })
+    handleMessageUpdatedEvent(state, null)
+    handleMessageUpdatedEvent(state, undefined)
+
+    expect(meta.lastResponseTime).toBe(1_000)
   })
 })
