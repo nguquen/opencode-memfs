@@ -360,7 +360,7 @@ export const MemFSPlugin: Plugin = async (input) => {
     // Intercept /memfs-flush to force a cache refresh on the next transform.
     "command.execute.before": async (input) => {
       if (input.command === "memfs-flush") {
-        bumpForceBust(state)
+        bumpForceBust(state, "flush-command")
       }
     },
 
@@ -467,9 +467,14 @@ export async function runSystemTransform(
   state.renderCache.set(sessionID, entry)
 
   // Log the refresh with its reason. `reason` is always non-null here — the
-  // ladder returns "first" when `cached` is undefined.
+  // ladder returns "first" when `cached` is undefined. When a forced bust
+  // triggered the refresh, suffix the reason with the originating operation
+  // (e.g. `forced:promote`) so the log line identifies which tool drove it.
+  const detail = reason === "forced" && state.forceBustGeneration.lastReason
+    ? `${reason}:${state.forceBustGeneration.lastReason}`
+    : (reason ?? "first")
   console.info(
-    `[memfs] refreshed <memfs> render (reason=${reason ?? "first"}, ` +
+    `[memfs] refreshed <memfs> render (reason=${detail}, ` +
     `session=${sessionID}, chars=${block.length})`,
   )
 

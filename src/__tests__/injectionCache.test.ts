@@ -207,6 +207,27 @@ describe("injection cache — promote/demote", () => {
 
     expect(state.forceBustGeneration!.value).toBe(before + 1)
   })
+
+  it("records the originating operation as the bust reason", async () => {
+    // Seed with a cold reference file so promote has something to move.
+    await writeTestFile(
+      tmpDir,
+      "reference/notes.md",
+      `---\ndescription: "Notes"\nlimit: 5000\nreadonly: false\n---\n\nContent.\n`,
+    )
+    await transform()
+
+    const promote = createMemoryPromote(state)
+    await promote.execute(
+      { path: "reference/notes.md", scope: "project" },
+      {} as never,
+    )
+    expect(state.forceBustGeneration!.lastReason).toBe("promote")
+
+    const flush = createMemoryFlush(state)
+    await flush.execute({}, {} as never)
+    expect(state.forceBustGeneration!.lastReason).toBe("flush-tool")
+  })
 })
 
 // ---------------------------------------------------------------------------

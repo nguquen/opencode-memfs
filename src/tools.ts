@@ -64,23 +64,33 @@ export interface MemFSState {
    * (`memory_promote`, `memory_demote`, `memory_flush`, `/memfs-flush`).
    * Every session's cached entry records the value it last saw; when the
    * global counter advances past that value, the next transform force-busts.
+   *
+   * `lastReason` records the label of the most recent bump so the transform
+   * log can identify which operation triggered the refresh.
    */
-  forceBustGeneration?: { value: number }
+  forceBustGeneration?: { value: number; lastReason?: string }
 }
 
 // ---------------------------------------------------------------------------
 // Force-bust helper
 // ---------------------------------------------------------------------------
 
+/** Labels for user-meaningful operations that force-bust the injection cache. */
+export type ForceBustReason = "promote" | "demote" | "flush-tool" | "flush-command"
+
 /**
  * Advance the global force-bust generation counter, causing every session's
  * cached render to be rebuilt on the next transform pass. A no-op when the
  * state has no counter attached (e.g. in unit tests).
+ *
+ * @param state  - Plugin state.
+ * @param reason - Optional label identifying the trigger. Used in the refresh log.
  */
-export function bumpForceBust(state: MemFSState): number {
+export function bumpForceBust(state: MemFSState, reason?: ForceBustReason): number {
   const ctr = state.forceBustGeneration
   if (!ctr) return 0
   ctr.value += 1
+  ctr.lastReason = reason
   return ctr.value
 }
 
@@ -362,7 +372,7 @@ export function createMemoryPromote(state: MemFSState): ToolDefinition {
 
         // Force-bust the injection cache (tier change is a user-meaningful op).
         if (state.config.refreshOnPromoteDemote) {
-          bumpForceBust(state)
+          bumpForceBust(state, "promote")
         }
 
         return `Promoted ${relativePath} → ${newRelPath} (now hot, pinned in system prompt)`
@@ -413,7 +423,7 @@ export function createMemoryDemote(state: MemFSState): ToolDefinition {
 
         // Force-bust the injection cache (tier change is a user-meaningful op).
         if (state.config.refreshOnPromoteDemote) {
-          bumpForceBust(state)
+          bumpForceBust(state, "demote")
         }
 
         return `Demoted ${relativePath} → ${newRelPath} (now cold, tree-only)`
@@ -522,7 +532,7 @@ export function createMemoryFlush(state: MemFSState): ToolDefinition {
     description: "Force an immediate refresh of the injected <memfs> system-prompt block on the next turn. Use when a recent memory write must be visible to yourself or other agents right now, regardless of the injection cache's TTL/pressure state.",
     args: {},
     async execute() {
-      const gen = bumpForceBust(state)
+      const gen = bumpForceBust(state, "flush-tool")
       if (gen === 0) {
         return "Flush requested (no cache attached in this environment)."
       }
