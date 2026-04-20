@@ -1,8 +1,9 @@
 # AGENTS.md — opencode-memfs
 
 OpenCode memory plugin — git-backed, two-tier hot/cold MemFS with progressive disclosure.
-All memory operations go through 9 dedicated custom tools (`memory_read`, `memory_write`, etc.)
-for full isolation from core file tools.
+All memory operations go through 10 dedicated custom tools (`memory_read`, `memory_write`, etc.)
+for full isolation from core file tools. The rendered `<memfs>` system-prompt block is
+content-hash-cached per session to preserve upstream prompt-cache prefix hits.
 
 ## Build / Dev Commands
 
@@ -23,15 +24,20 @@ No linter is configured yet.
 ```
 src/
 ├── index.ts           # Public entry point — re-exports MemFSPlugin
-├── plugin.ts          # Plugin factory, hook registration, lifecycle
-├── tools.ts           # 9 tool handlers (read/write/edit/delete/promote/demote/tree/history/rollback)
+├── plugin.ts          # Plugin factory, hook registration, lifecycle, runSystemTransform
+├── tools.ts           # 10 tool handlers (read/write/edit/delete/promote/demote/tree/history/rollback/flush)
 ├── store.ts           # Memory FS operations (scan dirs, read files, build tree)
 ├── prompt.ts          # System prompt <memfs> XML rendering (tree + hot content)
 ├── git.ts             # Git operations via simple-git (init, commit, log, rollback)
-├── watcher.ts         # fs.watch + debounce for auto-commit
+├── watcher.ts         # fs.watch + debounce for auto-commit (+ onChange callback)
 ├── frontmatter.ts     # YAML frontmatter parse/serialize + atomic writes (tmp+rename)
 ├── seed.ts            # First-run directory structure + starter files
 ├── config.ts          # Zod schema + loader for ~/.config/opencode/memfs.json
+├── hash.ts            # Deterministic SHA-256 over memory state (injection-cache key)
+├── cacheTtl.ts        # Parse "5m"/"30s"/"1h" duration strings into milliseconds
+├── sessionMeta.ts     # Per-session meta (lastResponseTime, token usage, context limit)
+├── renderCache.ts     # Per-session rendered-block cache + shouldRefreshNow decision ladder
+├── lock.ts            # Per-file lock + git-operation mutex
 └── types.ts           # Shared type definitions (MemoryFile, MemoryFrontmatter, etc.)
 ```
 
@@ -69,8 +75,10 @@ export const MemFSPlugin: Plugin = async (ctx) => {
 
 ### Key Hooks
 
-- `tool` — registers all 9 memory tools
-- `experimental.chat.system.transform` — injects `<memfs>` block at position 1 in system prompt
+- `tool` — registers all 10 memory tools
+- `experimental.chat.system.transform` — injects `<memfs>` block at position 1 in system prompt; runs through the injection-cache ladder (see `renderCache.ts`)
+- `event` — updates `lastResponseTime` / `lastTokens` in `sessionMeta` on `message.updated` for assistant messages
+- `command.execute.before` — intercepts `/memfs-flush` to force-bust the injection cache
 
 ### Centralized Memory Layout
 

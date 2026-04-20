@@ -39,6 +39,9 @@ export interface WatcherHandle {
  * @param git         - SimpleGit instance bound to the memory directory.
  * @param debounceMs  - Debounce delay in milliseconds. Default: 2000.
  * @param withGitLock - Git operation lock to serialize commits with rollbacks.
+ * @param onChange    - Optional callback invoked synchronously on every
+ *                      watched change (before debounce). Used by the injection
+ *                      cache (TASK-111) to bump session `lastChangeTime`.
  * @returns A `WatcherHandle` to stop the watcher.
  */
 export function startWatcher(
@@ -46,6 +49,7 @@ export function startWatcher(
   git: SimpleGit,
   debounceMs: number = 2000,
   withGitLock?: LockFn,
+  onChange?: (filename: string) => void,
 ): WatcherHandle {
   let timer: ReturnType<typeof setTimeout> | null = null
   let changedFiles = new Set<string>()
@@ -87,6 +91,13 @@ export function startWatcher(
 
       if (filename) {
         changedFiles.add(filename)
+        if (onChange) {
+          try {
+            onChange(filename)
+          } catch {
+            // Callback errors must not break the watcher.
+          }
+        }
       }
 
       // Reset debounce timer

@@ -35,9 +35,13 @@ import { scanAllStores, buildTree, partitionFiles } from "./store"
 import { renderMemFS } from "./prompt"
 import { startWatcher } from "./watcher"
 import type { WatcherHandle } from "./watcher"
-import { createAllTools } from "./tools"
+import { bumpForceBust, createAllTools } from "./tools"
 import type { MemFSState } from "./tools"
 import { createFileLock, createMutex } from "./lock"
+import { hashMemoryState } from "./hash"
+import { RenderCache, shouldRefreshNow } from "./renderCache"
+import type { CacheEntry } from "./renderCache"
+import { SessionMetaStore, computeUsagePercentage } from "./sessionMeta"
 
 // ---------------------------------------------------------------------------
 // Projects Registry
@@ -285,12 +289,28 @@ export const MemFSPlugin: Plugin = async (input) => {
 
 
 
-  // Single watcher at the memory root (uses git lock to serialize commits)
+  // -----------------------------------------------------------------------
+  // Injection-cache state (TASK-111)
+  // -----------------------------------------------------------------------
+
+  const sessionMeta = new SessionMetaStore()
+  const renderCache = new RenderCache()
+  const forceBustGeneration = { value: 0 }
+
+  // Single watcher at the memory root (uses git lock to serialize commits).
+  // The watcher also bumps `lastChangeTime` on all known sessions so external
+  // edits still influence the TTL-elapsed branch of the bust ladder.
   const watcher: WatcherHandle = startWatcher(
     memoryRoot,
     git,
     config.autoCommitDebounceMs,
     withGitLock,
+    () => {
+      const now = Date.now()
+      for (const meta of sessionMeta.values()) {
+        meta.lastChangeTime = now
+      }
+    },
   )
 
   // -----------------------------------------------------------------------
@@ -304,6 +324,9 @@ export const MemFSPlugin: Plugin = async (input) => {
     withFileLock,
     withGitLock,
     readFiles: new Map(),
+    sessionMeta,
+    renderCache,
+    forceBustGeneration,
   }
 
   // -----------------------------------------------------------------------
@@ -311,32 +334,131 @@ export const MemFSPlugin: Plugin = async (input) => {
   // -----------------------------------------------------------------------
 
   const hooks: Hooks = {
-    // Register all 9 memory tools
+    // Register all 10 memory tools
     tool: createAllTools(state),
 
-    // Inject <memfs> block into system prompt at position 1
-    "experimental.chat.system.transform": async (_input, output) => {
+    // Update per-session meta from message.updated events (TASK-111).
+    event: async ({ event }) => {
+      if (event.type !== "message.updated") return
+      const info = (event as { properties: { info: unknown } }).properties.info as {
+        role?: string
+        sessionID?: string
+        tokens?: {
+          input?: number
+          cache?: { read?: number }
+        }
+      }
+      if (!info || info.role !== "assistant" || !info.sessionID) return
+
+      const meta = sessionMeta.getOrCreate(info.sessionID)
+      meta.lastResponseTime = Date.now()
+      const input = info.tokens?.input ?? 0
+      const cacheRead = info.tokens?.cache?.read ?? 0
+      meta.lastTokens = { input, cacheRead }
+    },
+
+    // Intercept /memfs-flush to force a cache refresh on the next transform.
+    "command.execute.before": async (input) => {
+      if (input.command === "memfs-flush") {
+        bumpForceBust(state)
+      }
+    },
+
+    // Inject <memfs> block into system prompt at position 1 (TASK-111 cache).
+    "experimental.chat.system.transform": async (hookInput, output) => {
       try {
-        const files = await scanAllStores(
-          stores,
-          "all",
-          config.defaultLimit,
-          config.maxTreeDepth,
-        )
-
-        const treeEntries = buildTree(files)
-        const { hot } = partitionFiles(files, config.hotDir)
-
-        const memfsBlock = renderMemFS(treeEntries, hot)
-        // Insert after the first system message if possible, otherwise append
+        const block = await runSystemTransform(state, {
+          sessionID: hookInput.sessionID,
+          modelContextLimit: hookInput.model?.limit?.context,
+        })
         const insertAt = Math.min(1, output.system.length)
-        output.system.splice(insertAt, 0, memfsBlock)
+        output.system.splice(insertAt, 0, block)
       } catch {
-        // If scanning fails, don't crash the conversation
-        // The agent can still use tools to access memory
+        // If scanning fails, don't crash the conversation.
+        // The agent can still use tools to access memory.
       }
     },
   }
 
   return hooks
+}
+
+// ---------------------------------------------------------------------------
+// Transform logic (exported for testing — TASK-111)
+// ---------------------------------------------------------------------------
+
+/** Options for {@link runSystemTransform}. */
+export interface RunSystemTransformOptions {
+  /** Session ID from the hook input (or `undefined` when not available). */
+  sessionID?: string
+  /** Model context-window limit, if known. */
+  modelContextLimit?: number
+  /** Override the wall-clock. Defaults to `Date.now()`. */
+  now?: number
+}
+
+/**
+ * Run the system-prompt injection pipeline and return the `<memfs>` block
+ * that would be inserted into `output.system`.
+ *
+ * Does the full flow: scan → hash → consult cache → render if needed → update
+ * cache. Exported as a testing seam so acceptance scenarios can assert how
+ * many times a render is rebuilt under various conditions without needing to
+ * stand up the full plugin factory (which touches `$HOME`).
+ */
+export async function runSystemTransform(
+  state: MemFSState,
+  options: RunSystemTransformOptions = {},
+): Promise<string> {
+  const { config, stores } = state
+  const files = await scanAllStores(
+    stores,
+    "all",
+    config.defaultLimit,
+    config.maxTreeDepth,
+  )
+  const treeEntries = buildTree(files)
+  const { hot } = partitionFiles(files, config.hotDir)
+
+  const { sessionID, modelContextLimit } = options
+  const now = options.now ?? Date.now()
+
+  // No session context or no cache attached → render fresh, no caching.
+  if (!sessionID || !state.renderCache || !state.sessionMeta || !state.forceBustGeneration) {
+    return renderMemFS(treeEntries, hot)
+  }
+
+  const meta = state.sessionMeta.getOrCreate(sessionID, now)
+  if (typeof modelContextLimit === "number" && modelContextLimit > 0) {
+    meta.modelContextLimit = modelContextLimit
+  }
+
+  const currentHash = hashMemoryState(hot, treeEntries)
+  const cached = state.renderCache.get(sessionID)
+
+  const reason = shouldRefreshNow({
+    cached,
+    currentHash,
+    forceBustGeneration: state.forceBustGeneration.value,
+    usagePercentage: computeUsagePercentage(meta),
+    refreshThresholdPercentage: config.refreshThresholdPercentage,
+    lastResponseTime: meta.lastResponseTime,
+    cacheTtlMs: config.cacheTtlMs,
+    now,
+  })
+
+  if (reason === null && cached) {
+    // Serve cached bytes — preserves the upstream prompt-cache prefix.
+    return cached.block
+  }
+
+  const block = renderMemFS(treeEntries, hot)
+  const entry: CacheEntry = {
+    hash: currentHash,
+    block,
+    renderedAt: now,
+    bustGenSeen: state.forceBustGeneration.value,
+  }
+  state.renderCache.set(sessionID, entry)
+  return block
 }

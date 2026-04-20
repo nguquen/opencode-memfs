@@ -61,7 +61,10 @@ Optional. Create `~/.config/opencode/memfs.json`:
   "hotDir": "system",
   "defaultLimit": 5000,
   "autoCommitDebounceMs": 2000,
-  "maxTreeDepth": 3
+  "maxTreeDepth": 3,
+  "cacheTtl": "5m",
+  "refreshThresholdPercentage": 65,
+  "refreshOnPromoteDemote": true
 }
 ```
 
@@ -73,10 +76,13 @@ All fields are optional with sensible defaults:
 | `defaultLimit` | number | `5000` | Default character limit for new files |
 | `autoCommitDebounceMs` | number | `2000` | Debounce delay (ms) before auto-committing |
 | `maxTreeDepth` | number | `3` | Maximum directory depth in tree listing |
+| `cacheTtl` | string \| number | `"5m"` | Injection-cache sync point (`"5m"`, `"30s"`, `"500ms"`, or ms number) |
+| `refreshThresholdPercentage` | number | `65` | Context-usage % at which pressure forces a refresh |
+| `refreshOnPromoteDemote` | boolean | `true` | Whether `memory_promote`/`memory_demote` force-bust the cache |
 
 ## Tools
 
-The plugin registers 9 custom tools. The agent uses these instead of standard file tools to interact with memory.
+The plugin registers 10 custom tools. The agent uses these instead of standard file tools to interact with memory.
 
 ### Content Tools
 
@@ -176,6 +182,14 @@ Revert memory to a specific commit. Creates a new commit recording the rollback 
 |---|---|---|
 | `commitHash` | string | Commit hash from `memory_history` |
 
+#### `memory_flush`
+
+Force the injected `<memfs>` system-prompt block to refresh on the next turn, regardless of the injection cache's TTL/pressure state.
+
+No arguments.
+
+Use sparingly — the cache exists to preserve upstream prompt-cache prefix hits. Flush when a recent memory write must be visible in the system prompt immediately (e.g. before handing off to a sub-agent). The `/memfs-flush` command does the same thing.
+
 ## Frontmatter
 
 Every memory file uses YAML frontmatter:
@@ -230,6 +244,36 @@ Files in system/ are pinned — you always see their full contents below.
 </memfs>
 ```
 
+## Prompt-Cache Preservation
+
+Every write that modifies the `<memfs>` block would — without care — change `message[0]` and bust the upstream provider's KV-cache prefix (Anthropic, Bedrock, etc.), which costs real money on long sessions. The plugin defers rebuilds of the rendered block until a genuine cache-bust moment.
+
+**Two-layer model:**
+
+| Layer | When | Why |
+|---|---|---|
+| **Disk** (`~/.config/opencode/memory/**`) | Every tool call, immediately | Crash safety, read-after-write consistency, git-commitable |
+| **Render** (the `<memfs>` block in `message[0]`) | Deferred to the next cache-bust moment | Preserves the provider's prompt-cache prefix |
+
+**Cache-bust ladder (per session, on each `experimental.chat.system.transform`):**
+
+1. No cached entry yet → render (first turn)
+2. Content hash unchanged → serve cached (fast path, byte-identical)
+3. A force-bust was requested (`memory_promote` / `memory_demote` / `memory_flush` / `/memfs-flush`) → render
+4. Context usage ≥ `refreshThresholdPercentage` → render (pressure beats freshness)
+5. `now - lastResponseTime > cacheTtlMs` → render (provider cache likely stale anyway)
+6. Otherwise → serve cached bytes even though content has changed
+
+Rules 3–5 are the three independent ways a bust can fire. Rule 6 is the point: between bust moments, the agent sees identical bytes in `message[0]` across many memory edits.
+
+**What is never stale:**
+
+- `memory_read` always hits disk → always returns the latest content
+- `memory_tree` always scans live → always current
+- The only thing that can be stale is the injected `<memfs>` block, and only for at most one turn's worth of time (bounded by the ladder)
+
+**`cacheTtl` is a sync point, not a timer.** Setting `"5m"` matches Anthropic's default 5-minute prompt-cache window — it describes "when busting the upstream cache is free anyway," not when a local timer fires. For Anthropic's extended 1-hour cache beta, set `"1h"`.
+
 ## Architecture
 
 ```
@@ -251,6 +295,7 @@ Key design decisions:
 - **Decoupled commit path** — Tools write files, watcher handles git. Catches all changes regardless of source
 - **Atomic writes** — tmp + rename prevents corruption from partial writes
 - **Projects registry** — Auto-maintained `projects.md` tracks all known projects for cross-project awareness
+- **Injection cache** — Rendered `<memfs>` block is cached per session and only rebuilt at genuine cache-bust moments (see above), preserving upstream prompt-cache prefix hits across many memory edits
 
 ## Development
 

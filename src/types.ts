@@ -95,6 +95,25 @@ export interface MemFSConfig {
   autoCommitDebounceMs: number
   /** Maximum directory depth shown in tree listing. Default: 3. */
   maxTreeDepth: number
+  /**
+   * Injection-cache TTL in ms.
+   *
+   * Framed as a *sync point*, not a timer: the moment at which we accept that
+   * busting the upstream prompt-cache prefix is cheap because the provider
+   * likely dropped its own cache anyway. Default: 300000 (5m, matches
+   * Anthropic's default prompt-cache window).
+   */
+  cacheTtlMs: number
+  /**
+   * Context-usage percentage at which pressure forces a refresh of the
+   * `<memfs>` block regardless of TTL. Default: 65.
+   */
+  refreshThresholdPercentage: number
+  /**
+   * When true, `memory_promote` and `memory_demote` force-bust the injection
+   * cache on their next transform pass. Default: true.
+   */
+  refreshOnPromoteDemote: boolean
 }
 
 // ---------------------------------------------------------------------------
