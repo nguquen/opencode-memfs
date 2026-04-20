@@ -46,6 +46,9 @@ export const TEST_CONFIG: MemFSConfig = {
   defaultLimit: 5000,
   autoCommitDebounceMs: 2000,
   maxTreeDepth: 3,
+  cacheTtlMs: 5 * 60 * 1000,
+  refreshThresholdPercentage: 65,
+  refreshOnPromoteDemote: true,
 }
 
 // ---------------------------------------------------------------------------

@@ -28,6 +28,8 @@ import {
 import { scanAllStores, buildTree, isHot } from "./store"
 import { getLog, rollback } from "./git"
 import type { FileLockFn, LockFn } from "./lock"
+import type { SessionMetaStore } from "./sessionMeta"
+import type { RenderCache } from "./renderCache"
 
 // ---------------------------------------------------------------------------
 // Plugin State (shared across all tools)
@@ -47,6 +49,49 @@ export interface MemFSState {
   withGitLock: LockFn
   /** Tracks files read via memory_read or written via memory_write (keys: "scope:path", values: mtime in ms). */
   readFiles: Map<string, number>
+  /**
+   * Per-session meta for the injection cache (TASK-111). Optional — tests
+   * that don't exercise the cache path can omit it.
+   */
+  sessionMeta?: SessionMetaStore
+  /**
+   * In-memory store of cached `<memfs>` renders keyed by sessionID (TASK-111).
+   * Optional — tests that don't exercise the cache path can omit it.
+   */
+  renderCache?: RenderCache
+  /**
+   * Monotonic counter incremented by user-meaningful memory operations
+   * (`memory_promote`, `memory_demote`, `memory_flush`, `/memfs-flush`).
+   * Every session's cached entry records the value it last saw; when the
+   * global counter advances past that value, the next transform force-busts.
+   *
+   * `lastReason` records the label of the most recent bump so the transform
+   * log can identify which operation triggered the refresh.
+   */
+  forceBustGeneration?: { value: number; lastReason?: string }
+}
+
+// ---------------------------------------------------------------------------
+// Force-bust helper
+// ---------------------------------------------------------------------------
+
+/** Labels for user-meaningful operations that force-bust the injection cache. */
+export type ForceBustReason = "promote" | "demote" | "flush-tool" | "flush-command"
+
+/**
+ * Advance the global force-bust generation counter, causing every session's
+ * cached render to be rebuilt on the next transform pass. A no-op when the
+ * state has no counter attached (e.g. in unit tests).
+ *
+ * @param state  - Plugin state.
+ * @param reason - Optional label identifying the trigger. Used in the refresh log.
+ */
+export function bumpForceBust(state: MemFSState, reason?: ForceBustReason): number {
+  const ctr = state.forceBustGeneration
+  if (!ctr) return 0
+  ctr.value += 1
+  ctr.lastReason = reason
+  return ctr.value
 }
 
 // ---------------------------------------------------------------------------
@@ -325,6 +370,11 @@ export function createMemoryPromote(state: MemFSState): ToolDefinition {
         // Move the file
         await rename(absPath, newAbsPath)
 
+        // Force-bust the injection cache (tier change is a user-meaningful op).
+        if (state.config.refreshOnPromoteDemote) {
+          bumpForceBust(state, "promote")
+        }
+
         return `Promoted ${relativePath} → ${newRelPath} (now hot, pinned in system prompt)`
       })
     },
@@ -370,6 +420,11 @@ export function createMemoryDemote(state: MemFSState): ToolDefinition {
 
         // Move the file
         await rename(absPath, newAbsPath)
+
+        // Force-bust the injection cache (tier change is a user-meaningful op).
+        if (state.config.refreshOnPromoteDemote) {
+          bumpForceBust(state, "demote")
+        }
 
         return `Demoted ${relativePath} → ${newRelPath} (now cold, tree-only)`
       })
@@ -468,11 +523,30 @@ export function createMemoryRollback(state: MemFSState): ToolDefinition {
 }
 
 // ---------------------------------------------------------------------------
+// memory_flush
+// ---------------------------------------------------------------------------
+
+/** Create the `memory_flush` tool definition. */
+export function createMemoryFlush(state: MemFSState): ToolDefinition {
+  return tool({
+    description: "Force an immediate refresh of the injected <memfs> system-prompt block on the next turn. Use when a recent memory write must be visible to yourself or other agents right now, regardless of the injection cache's TTL/pressure state.",
+    args: {},
+    async execute() {
+      const gen = bumpForceBust(state, "flush-tool")
+      if (gen === 0) {
+        return "Flush requested (no cache attached in this environment)."
+      }
+      return `Flush requested — the <memfs> block will refresh on the next transform (generation ${gen}).`
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Tool Map Builder
 // ---------------------------------------------------------------------------
 
 /**
- * Create all 9 memory tool definitions from the plugin state.
+ * Create all 10 memory tool definitions from the plugin state.
  *
  * Returns a record suitable for the `tool` hook in the plugin's `Hooks`.
  */
@@ -487,5 +561,6 @@ export function createAllTools(state: MemFSState): Record<string, ToolDefinition
     memory_tree: createMemoryTree(state),
     memory_history: createMemoryHistory(state),
     memory_rollback: createMemoryRollback(state),
+    memory_flush: createMemoryFlush(state),
   }
 }
