@@ -426,7 +426,7 @@ export async function runSystemTransform(
   // No session context or no cache attached → render fresh, no caching.
   if (!sessionID || !state.renderCache || !state.sessionMeta || !state.forceBustGeneration) {
     const block = renderMemFS(treeEntries, hot)
-    console.info(
+    console.log(
       `[memfs] rendered <memfs> uncached (reason=${!sessionID ? "no-session" : "no-cache-state"}, ` +
       `chars=${block.length})`,
     )
@@ -452,8 +452,19 @@ export async function runSystemTransform(
     now,
   })
 
+  // Shared diagnostic context — attached to every decision log line.
+  const ageMs = cached ? now - cached.renderedAt : 0
+  const sinceResponseMs = now - meta.lastResponseTime
+
   if (reason === null && cached) {
     // Serve cached bytes — preserves the upstream prompt-cache prefix.
+    const hashMatch = cached.hash === currentHash
+    console.log(
+      `[memfs] served cached <memfs> (session=${sessionID}, ` +
+      `hash_match=${hashMatch}, cache_age_ms=${ageMs}, ` +
+      `since_last_response_ms=${sinceResponseMs}, ttl_ms=${config.cacheTtlMs}, ` +
+      `usage_pct=${computeUsagePercentage(meta).toFixed(1)}, chars=${cached.block.length})`,
+    )
     return cached.block
   }
 
@@ -473,9 +484,11 @@ export async function runSystemTransform(
   const detail = reason === "forced" && state.forceBustGeneration.lastReason
     ? `${reason}:${state.forceBustGeneration.lastReason}`
     : (reason ?? "first")
-  console.info(
+  console.log(
     `[memfs] refreshed <memfs> render (reason=${detail}, ` +
-    `session=${sessionID}, chars=${block.length})`,
+    `session=${sessionID}, chars=${block.length}, ` +
+    `prev_cache_age_ms=${ageMs}, since_last_response_ms=${sinceResponseMs}, ` +
+    `ttl_ms=${config.cacheTtlMs}, usage_pct=${computeUsagePercentage(meta).toFixed(1)})`,
   )
 
   return block
