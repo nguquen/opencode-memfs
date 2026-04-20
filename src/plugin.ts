@@ -425,7 +425,12 @@ export async function runSystemTransform(
 
   // No session context or no cache attached → render fresh, no caching.
   if (!sessionID || !state.renderCache || !state.sessionMeta || !state.forceBustGeneration) {
-    return renderMemFS(treeEntries, hot)
+    const block = renderMemFS(treeEntries, hot)
+    console.info(
+      `[memfs] rendered <memfs> uncached (reason=${!sessionID ? "no-session" : "no-cache-state"}, ` +
+      `chars=${block.length})`,
+    )
+    return block
   }
 
   const meta = state.sessionMeta.getOrCreate(sessionID, now)
