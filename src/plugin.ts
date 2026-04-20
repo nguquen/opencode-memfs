@@ -460,5 +460,13 @@ export async function runSystemTransform(
     bustGenSeen: state.forceBustGeneration.value,
   }
   state.renderCache.set(sessionID, entry)
+
+  // Log the refresh with its reason. `reason` is always non-null here — the
+  // ladder returns "first" when `cached` is undefined.
+  console.info(
+    `[memfs] refreshed <memfs> render (reason=${reason ?? "first"}, ` +
+    `session=${sessionID}, chars=${block.length})`,
+  )
+
   return block
 }
