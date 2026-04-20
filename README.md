@@ -274,6 +274,29 @@ Rules 3–5 are the three independent ways a bust can fire. Rule 6 is the point:
 
 **`cacheTtl` is a sync point, not a timer.** Setting `"5m"` matches Anthropic's default 5-minute prompt-cache window — it describes "when busting the upstream cache is free anyway," not when a local timer fires. For Anthropic's extended 1-hour cache beta, set `"1h"`.
 
+### Observing the cache
+
+Every decision is logged to `~/.config/opencode/memfs.log` (one line per transform). Tail it during a session to see exactly which ladder branch fired:
+
+```sh
+tail -f ~/.config/opencode/memfs.log
+```
+
+Example:
+
+```
+2026-04-20T13:42:01.123Z INFO  plugin loaded projectName=opencode-memfs cache_ttl_ms=300000 refresh_threshold_pct=65
+2026-04-20T13:42:01.456Z INFO  refreshed <memfs> render reason=first session=ses_01... chars=2812 prev_cache_age_ms=0 since_last_response_ms=0 ttl_ms=300000 usage_pct=0
+2026-04-20T13:42:09.789Z INFO  served cached <memfs> session=ses_01... hash_match=true cache_age_ms=8333 since_last_response_ms=8333 ttl_ms=300000 usage_pct=12.4 chars=2812
+2026-04-20T13:48:15.012Z INFO  refreshed <memfs> render reason=ttl session=ses_01... chars=2856 prev_cache_age_ms=374223 since_last_response_ms=374223 ttl_ms=300000 usage_pct=18.1
+```
+
+Key fields:
+
+- `hash_match=true` on a served-cached line means a fresh render would be byte-identical — serving cached is the optimization working correctly (and TTL doesn't fire in this case, because rebuilding produces the same bytes).
+- `hash_match=false` + served-cached means deferred bust — the content changed but none of force/pressure/TTL triggers applied yet.
+- `reason=forced:<source>` identifies which tool drove a force-bust (`promote`, `demote`, `flush-tool`, `flush-command`).
+
 ## Architecture
 
 ```

@@ -42,6 +42,7 @@ import { hashMemoryState } from "./hash"
 import { RenderCache, shouldRefreshNow } from "./renderCache"
 import type { CacheEntry } from "./renderCache"
 import { SessionMetaStore, computeUsagePercentage } from "./sessionMeta"
+import { logInfo } from "./logger"
 
 // ---------------------------------------------------------------------------
 // Projects Registry
@@ -329,6 +330,15 @@ export const MemFSPlugin: Plugin = async (input) => {
     forceBustGeneration,
   }
 
+  logInfo("plugin loaded", {
+    projectName,
+    projectRoot,
+    globalRoot,
+    cache_ttl_ms: config.cacheTtlMs,
+    refresh_threshold_pct: config.refreshThresholdPercentage,
+    refresh_on_promote_demote: config.refreshOnPromoteDemote,
+  })
+
   // -----------------------------------------------------------------------
   // Build hooks
   // -----------------------------------------------------------------------
@@ -426,10 +436,10 @@ export async function runSystemTransform(
   // No session context or no cache attached → render fresh, no caching.
   if (!sessionID || !state.renderCache || !state.sessionMeta || !state.forceBustGeneration) {
     const block = renderMemFS(treeEntries, hot)
-    console.log(
-      `[memfs] rendered <memfs> uncached (reason=${!sessionID ? "no-session" : "no-cache-state"}, ` +
-      `chars=${block.length})`,
-    )
+    logInfo("rendered <memfs> uncached", {
+      reason: !sessionID ? "no-session" : "no-cache-state",
+      chars: block.length,
+    })
     return block
   }
 
@@ -458,13 +468,15 @@ export async function runSystemTransform(
 
   if (reason === null && cached) {
     // Serve cached bytes — preserves the upstream prompt-cache prefix.
-    const hashMatch = cached.hash === currentHash
-    console.log(
-      `[memfs] served cached <memfs> (session=${sessionID}, ` +
-      `hash_match=${hashMatch}, cache_age_ms=${ageMs}, ` +
-      `since_last_response_ms=${sinceResponseMs}, ttl_ms=${config.cacheTtlMs}, ` +
-      `usage_pct=${computeUsagePercentage(meta).toFixed(1)}, chars=${cached.block.length})`,
-    )
+    logInfo("served cached <memfs>", {
+      session: sessionID,
+      hash_match: cached.hash === currentHash,
+      cache_age_ms: ageMs,
+      since_last_response_ms: sinceResponseMs,
+      ttl_ms: config.cacheTtlMs,
+      usage_pct: Number(computeUsagePercentage(meta).toFixed(1)),
+      chars: cached.block.length,
+    })
     return cached.block
   }
 
@@ -484,12 +496,15 @@ export async function runSystemTransform(
   const detail = reason === "forced" && state.forceBustGeneration.lastReason
     ? `${reason}:${state.forceBustGeneration.lastReason}`
     : (reason ?? "first")
-  console.log(
-    `[memfs] refreshed <memfs> render (reason=${detail}, ` +
-    `session=${sessionID}, chars=${block.length}, ` +
-    `prev_cache_age_ms=${ageMs}, since_last_response_ms=${sinceResponseMs}, ` +
-    `ttl_ms=${config.cacheTtlMs}, usage_pct=${computeUsagePercentage(meta).toFixed(1)})`,
-  )
+  logInfo("refreshed <memfs> render", {
+    reason: detail,
+    session: sessionID,
+    chars: block.length,
+    prev_cache_age_ms: ageMs,
+    since_last_response_ms: sinceResponseMs,
+    ttl_ms: config.cacheTtlMs,
+    usage_pct: Number(computeUsagePercentage(meta).toFixed(1)),
+  })
 
   return block
 }
