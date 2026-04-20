@@ -246,14 +246,14 @@ Files in system/ are pinned — you always see their full contents below.
 
 ## Prompt-Cache Preservation
 
-Every write that modifies the `<memfs>` block would — without care — change `message[0]` and bust the upstream provider's KV-cache prefix (Anthropic, Bedrock, etc.), which costs real money on long sessions. The plugin defers rebuilds of the rendered block until a genuine cache-bust moment.
+Every write that modifies the `<memfs>` block would — without care — change the system prompt and bust the upstream provider's KV-cache prefix (Anthropic, Bedrock, etc.), which costs real money on long sessions. The plugin defers rebuilds of the rendered block until a genuine cache-bust moment.
 
 **Two-layer model:**
 
 | Layer | When | Why |
 |---|---|---|
 | **Disk** (`~/.config/opencode/memory/**`) | Every tool call, immediately | Crash safety, read-after-write consistency, git-commitable |
-| **Render** (the `<memfs>` block in `message[0]`) | Deferred to the next cache-bust moment | Preserves the provider's prompt-cache prefix |
+| **Render** (the `<memfs>` block injected into the system prompt) | Deferred to the next cache-bust moment | Preserves the provider's prompt-cache prefix |
 
 **Cache-bust ladder (per session, on each `experimental.chat.system.transform`):**
 
@@ -264,7 +264,7 @@ Every write that modifies the `<memfs>` block would — without care — change 
 5. `now - lastResponseTime > cacheTtlMs` → render (provider cache likely stale anyway)
 6. Otherwise → serve cached bytes even though content has changed
 
-Rules 3–5 are the three independent ways a bust can fire. Rule 6 is the point: between bust moments, the agent sees identical bytes in `message[0]` across many memory edits.
+Rules 3–5 are the three independent ways a bust can fire. Rule 6 is the point: between bust moments, the agent sees identical bytes in the system prompt across many memory edits.
 
 **What is never stale:**
 
